@@ -1,0 +1,158 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-sans text-gray-800;
+  background-color: #faf8f3;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-serif font-bold text-charcoal;
+  letter-spacing: -0.5px;
+}
+
+h1 {
+  @apply text-4xl md:text-5xl lg:text-6xl;
+}
+
+h2 {
+  @apply text-3xl md:text-4xl;
+}
+
+h3 {
+  @apply text-2xl md:text-3xl;
+}
+
+h4 {
+  @apply text-xl md:text-2xl;
+}
+
+/* Input styles */
+input, textarea, select {
+  @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-rice-green-500 focus:ring-2 focus:ring-rice-green-100 transition-all duration-200;
+}
+
+input::placeholder, textarea::placeholder {
+  @apply text-gray-500;
+}
+
+input:disabled, textarea:disabled, select:disabled {
+  @apply bg-gray-100 cursor-not-allowed;
+}
+
+/* Form validation styles */
+input:invalid {
+  @apply border-red-500 focus:ring-red-100;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply border-4 border-rice-beige-200 border-t-rice-green-600 rounded-full;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  h1 {
+    @apply text-2xl;
+  }
+
+  h2 {
+    @apply text-xl;
+  }
+
+  h3 {
+    @apply text-lg;
+  }
+}
+
+/* SEO and accessibility */
+.sr-only {
+  @apply absolute w-1 h-1 p-0 -m-1 overflow-hidden clip border-0;
+}
+
+/* Smooth transitions */
+a, button {
+  @apply transition-all duration-200;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-rice-green-500;
+}
+
+/* Utility classes */
+.text-gradient {
+  @apply bg-gradient-to-r from-rice-beige-500 via-rice-green-600 to-rice-gold-500 bg-clip-text text-transparent;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+.premium-border {
+  @apply border-2 border-rice-gold-400;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.6s ease-out;
+}
+
+/* Responsive padding and margins */
+.container-responsive {
+  @apply px-4 sm:px-6 lg:px-8;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    @apply hidden;
+  }
+}
