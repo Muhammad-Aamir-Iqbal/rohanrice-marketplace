@@ -132,7 +132,7 @@ export default function Shop() {
   ];
 
   const filteredRice = riceData
-    .filter(rice => filterStock === 'all' || (filterStock === 'in-stock' && rice.stock > 0) || (filterStock === 'high && rice.stock > 500))
+    .filter(rice => filterStock === 'all' || (filterStock === 'in-stock' && rice.stock > 0) || (filterStock === 'high' && rice.stock > 500))
     .sort((a, b) => {
       if (sortBy === 'price-low') return a.price - b.price;
       if (sortBy === 'price-high') return b.price - a.price;

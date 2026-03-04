@@ -2,7 +2,7 @@ import express from 'express';
 import Message from '../models/Message.js';
 import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 import { sendContactEmail } from '../services/emailService.js';
-import { io } from '../server.js';
+import { emitEvent, emitToRoom } from '../realtime/io.js';
 
 const router = express.Router();
 
@@ -43,7 +43,7 @@ router.post('/submit', async (req, res) => {
     });
 
     // Notify admin via socket
-    io.emit('new-message', {
+    emitEvent('new-message', {
       messageId: newMessage._id,
       senderEmail,
       subject,
@@ -164,7 +164,7 @@ router.put('/:id/respond', authMiddleware, adminMiddleware, async (req, res) => 
     }
 
     // Notify user via socket if logged in
-    io.to(`user-${message.userId}`).emit('message-responded', {
+    emitToRoom(`user-${message.userId}`, 'message-responded', {
       messageId: message._id,
       response,
     });

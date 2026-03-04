@@ -1,34 +1,57 @@
 import algoliasearch from 'algoliasearch';
 import chalk from 'chalk';
 
-const client = algoliasearch(
-  process.env.ALGOLIA_APP_ID,
-  process.env.ALGOLIA_API_KEY
-);
+export let client = null;
+export let index = null;
 
-const index = client.initIndex(process.env.ALGOLIA_INDEX_NAME || 'rohanrice_products');
+let initialized = false;
 
-/**
- * Initialize Algolia
- * Test connection and create index if needed
- */
+const getAlgoliaConfig = () => ({
+  appId: process.env.ALGOLIA_APP_ID,
+  apiKey: process.env.ALGOLIA_API_KEY,
+  indexName: process.env.ALGOLIA_INDEX_NAME || 'rohanrice_products',
+});
+
+const ensureClient = () => {
+  if (client && index) return { client, index };
+
+  const { appId, apiKey, indexName } = getAlgoliaConfig();
+  if (!appId || !apiKey) {
+    return null;
+  }
+
+  client = algoliasearch(appId, apiKey);
+  index = client.initIndex(indexName);
+  return { client, index };
+};
+
 export const initializeAlgolia = async () => {
+  if (initialized) {
+    return client && index ? { client, index } : null;
+  }
+
+  const ctx = ensureClient();
+  if (!ctx) {
+    initialized = true;
+    console.log(chalk.yellow('Algolia is not configured. Skipping initialization.'));
+    return null;
+  }
+
   try {
-    // Test connection
-    await client.getApiKeys();
-    console.log(chalk.green('✓ Algolia connected'));
-    return { client, index };
+    await ctx.client.getApiKeys();
+    initialized = true;
+    console.log(chalk.green('Algolia connected'));
+    return ctx;
   } catch (error) {
-    console.error(chalk.red(`✗ Algolia connection error: ${error.message}`));
-    // Don't exit - Algolia is optional
+    console.error(chalk.red(`Algolia connection error: ${error.message}`));
     return null;
   }
 };
 
-/**
- * Index products in Algolia
- */
 export const indexProduct = async (product) => {
+  const ctx = ensureClient();
+  if (!ctx || !product) return;
+
   try {
     const record = {
       objectID: product._id.toString(),
@@ -40,47 +63,47 @@ export const indexProduct = async (product) => {
       rating: product.rating,
       certifications: product.certifications,
       origin: product.origin,
-      image: product.images[0] || '',
+      image: product.images?.[0] || '',
     };
 
-    await index.saveObject(record);
-    console.log(chalk.green(`✓ Product indexed: ${product.name}`));
+    await ctx.index.saveObject(record);
+    console.log(chalk.green(`Product indexed: ${product.name}`));
   } catch (error) {
-    console.error(chalk.red(`✗ Algolia indexing error: ${error.message}`));
+    console.error(chalk.red(`Algolia indexing error: ${error.message}`));
   }
 };
 
-/**
- * Delete product from Algolia
- */
 export const deleteProductFromIndex = async (productId) => {
+  const ctx = ensureClient();
+  if (!ctx || !productId) return;
+
   try {
-    await index.deleteObject(productId.toString());
-    console.log(chalk.green(`✓ Product removed from index: ${productId}`));
+    await ctx.index.deleteObject(productId.toString());
+    console.log(chalk.green(`Product removed from index: ${productId}`));
   } catch (error) {
-    console.error(chalk.red(`✗ Algolia deletion error: ${error.message}`));
+    console.error(chalk.red(`Algolia deletion error: ${error.message}`));
   }
 };
 
-/**
- * Search with Algolia
- */
 export const searchProducts = async (query) => {
+  const ctx = ensureClient();
+  if (!ctx || !query) return [];
+
   try {
-    const results = await index.search(query);
-    return results.hits;
+    const results = await ctx.index.search(query);
+    return results.hits || [];
   } catch (error) {
-    console.error(chalk.red(`✗ Algolia search error: ${error.message}`));
+    console.error(chalk.red(`Algolia search error: ${error.message}`));
     return [];
   }
 };
 
-/**
- * Bulk index products
- */
 export const bulkIndexProducts = async (products) => {
+  const ctx = ensureClient();
+  if (!ctx || !Array.isArray(products) || products.length === 0) return;
+
   try {
-    const objects = products.map(product => ({
+    const objects = products.map((product) => ({
       objectID: product._id.toString(),
       name: product.name,
       variety: product.variety,
@@ -90,14 +113,12 @@ export const bulkIndexProducts = async (products) => {
       rating: product.rating,
       certifications: product.certifications,
       origin: product.origin,
-      image: product.images[0] || '',
+      image: product.images?.[0] || '',
     }));
 
-    await index.saveObjects(objects);
-    console.log(chalk.green(`✓ Bulk indexed ${objects.length} products`));
+    await ctx.index.saveObjects(objects);
+    console.log(chalk.green(`Bulk indexed ${objects.length} products`));
   } catch (error) {
-    console.error(chalk.red(`✗ Bulk indexing error: ${error.message}`));
+    console.error(chalk.red(`Bulk indexing error: ${error.message}`));
   }
 };
-
-export { index, client };

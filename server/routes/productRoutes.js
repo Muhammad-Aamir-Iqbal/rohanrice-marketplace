@@ -43,30 +43,6 @@ router.get('/', optionalAuth, async (req, res) => {
   }
 });
 
-// ====== GET SINGLE PRODUCT ======
-router.get('/:id', optionalAuth, async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
-    }
-
-    res.json({
-      success: true,
-      product,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-
 // ====== SEARCH PRODUCTS (via Algolia) ======
 router.get('/search/ai', async (req, res) => {
   try {
@@ -144,6 +120,30 @@ router.get('/varieties/list', async (req, res) => {
     res.json({
       success: true,
       varieties: varietyData,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ====== GET SINGLE PRODUCT ======
+router.get('/:id', optionalAuth, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      product,
     });
   } catch (error) {
     res.status(500).json({

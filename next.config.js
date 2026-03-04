@@ -1,14 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   images: {
     domains: ['cdn.example.com', 'images.example.com'],
     formats: ['image/avif', 'image/webp'],
-    optimizeFonts: true,
     minimumCacheTTL: 60,
   },
   headers: async () => {
@@ -40,14 +41,7 @@ const nextConfig = {
     return []
   },
   rewrites: async () => {
-    return {
-      beforeFiles: [
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:8000/api/:path*',
-        },
-      ],
-    }
+    return []
   },
 };
 

@@ -14,12 +14,12 @@ export function AuthProvider({ children }) {
         const token = localStorage.getItem('token');
         if (token) {
           // Validate token with backend
-          const response = await fetch('/api/auth/me', {
+          const response = await fetch('/api/backend/auth/me', {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (response.ok) {
             const userData = await response.json();
-            setUser(userData);
+            setUser(userData.user || userData);
           } else {
             localStorage.removeItem('token');
           }

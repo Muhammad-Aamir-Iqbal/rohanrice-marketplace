@@ -4,7 +4,7 @@ import { Order } from '../models/Order.js';
 import User from '../models/User.js';
 import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 import { bulkIndexProducts, indexProduct, deleteProductFromIndex } from '../config/algolia.js';
-import { io } from '../server.js';
+import { emitEvent, emitToRoom } from '../realtime/io.js';
 
 const router = express.Router();
 
@@ -56,7 +56,7 @@ router.post('/products', async (req, res) => {
     await indexProduct(product);
 
     // Broadcast to all clients
-    io.emit('stock-updated', { product, action: 'created' });
+    emitEvent('stock-updated', { product, action: 'created' });
 
     res.status(201).json({
       success: true,
@@ -87,7 +87,7 @@ router.put('/products/:id', async (req, res) => {
     }
 
     await indexProduct(product);
-    io.emit('stock-updated', { product, action: 'updated' });
+    emitEvent('stock-updated', { product, action: 'updated' });
 
     res.json({
       success: true,
@@ -115,7 +115,7 @@ router.delete('/products/:id', async (req, res) => {
     }
 
     await deleteProductFromIndex(req.params.id);
-    io.emit('stock-updated', { productId: req.params.id, action: 'deleted' });
+    emitEvent('stock-updated', { productId: req.params.id, action: 'deleted' });
 
     res.json({
       success: true,
@@ -148,7 +148,7 @@ router.patch('/products/:id/stock', async (req, res) => {
     }
 
     // Broadcast real-time update
-    io.emit('stock-updated', {
+    emitEvent('stock-updated', {
       productId: product._id,
       stock: product.stock,
       status: product.getAvailabilityStatus(),
@@ -223,7 +223,7 @@ router.patch('/orders/:id/status', async (req, res) => {
     }
 
     // Broadcast update to user
-    io.to(`user-${order.userId}`).emit('order-updated', {
+    emitToRoom(`user-${order.userId}`, 'order-updated', {
       orderId: order._id,
       orderNumber: order.orderNumber,
       orderStatus,

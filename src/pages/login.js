@@ -36,6 +36,13 @@ export default function Login() {
       if (result?.error) {
         setError('Invalid email or password');
       } else if (result?.ok) {
+        const sessionRes = await fetch('/api/auth/session');
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json();
+          if (sessionData?.accessToken) {
+            localStorage.setItem('token', sessionData.accessToken);
+          }
+        }
         router.push('/admin');
       }
     } catch (err) {
@@ -55,7 +62,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/request-otp', {
+      const response = await fetch('/api/backend/auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -83,7 +90,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch('/api/backend/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),

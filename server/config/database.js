@@ -1,28 +1,42 @@
 import mongoose from 'mongoose';
 import chalk from 'chalk';
 
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/rohanrice';
+const mongoUri =
+  process.env.MONGODB_URI ||
+  process.env.DATABASE_URL ||
+  'mongodb://localhost:27017/rohanrice';
+
+let connectionPromise = null;
 
 export const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (mongoose.connection.readyState === 2 && connectionPromise) {
+    return connectionPromise;
+  }
+
+  if (!connectionPromise) {
+    connectionPromise = mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
+  }
 
-    console.log(chalk.green(`✓ MongoDB connected: ${conn.connection.host}`));
-    return conn;
+  try {
+    const conn = await connectionPromise;
+    console.log(chalk.green(`MongoDB connected: ${conn.connection.host}`));
+    return conn.connection;
   } catch (error) {
-    console.error(chalk.red(`✗ MongoDB connection error: ${error.message}`));
-    process.exit(1);
+    connectionPromise = null;
+    console.error(chalk.red(`MongoDB connection error: ${error.message}`));
+    throw error;
   }
 };
 
-// Connection event handlers
 mongoose.connection.on('disconnected', () => {
-  console.log(chalk.yellow('⚠ MongoDB disconnected'));
+  console.log(chalk.yellow('MongoDB disconnected'));
 });
 
 mongoose.connection.on('error', (error) => {
