@@ -11,17 +11,12 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [showOTP, setShowOTP] = useState(false);
-  const [captchaChecked, setCaptchaChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Email/Password Login
   const handleEmailLogin = async (e) => {
     e.preventDefault();
-    if (!captchaChecked) {
-      setError('Please verify the captcha');
-      return;
-    }
 
     setLoading(true);
     setError('');
@@ -202,27 +197,9 @@ export default function Login() {
                   />
                 </div>
 
-                {/* CAPTCHA */}
-                <div className="bg-rice-beige-50 border border-rice-beige-200 rounded-lg p-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={captchaChecked}
-                      onChange={(e) => setCaptchaChecked(e.target.checked)}
-                      className="w-5 h-5 accent-rice-green-600"
-                    />
-                    <span className="text-sm text-gray-700">
-                      I'm not a robot
-                    </span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-2">
-                    reCAPTCHA v3 by Google
-                  </p>
-                </div>
-
                 <button
                   type="submit"
-                  disabled={!captchaChecked || loading}
+                  disabled={loading}
                   className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Signing in...' : 'Sign In'}

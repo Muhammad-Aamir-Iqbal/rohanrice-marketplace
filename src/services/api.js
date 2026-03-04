@@ -63,8 +63,4 @@ export const contactService = {
   submit: (data) => axios.post('/api/contact', data),
 };
 
-export const aiHelpService = {
-  query: (query) => axios.post('/api/ai-help', { query }),
-};
-
 export default api;

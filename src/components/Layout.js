@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
-import Navigation from './Navigation';
 import Footer from './Footer';
-import AIHelpWidget from './AIHelpWidget';
 
 export default function Layout({ children }) {
   const router = useRouter();
@@ -99,9 +97,6 @@ export default function Layout({ children }) {
       <main className="flex-1">
         {children}
       </main>
-
-      {/* AI Help Widget */}
-      <AIHelpWidget />
 
       {/* Footer */}
       <Footer />
