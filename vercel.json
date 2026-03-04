@@ -1,4 +1,3 @@
-// vercel.json - Vercel deployment configuration
 {
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
