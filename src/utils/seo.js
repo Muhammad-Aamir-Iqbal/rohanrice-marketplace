@@ -1,4 +1,4 @@
-// src/utils/seo.js
+﻿// src/utils/seo.js
 export const SEO = {
   title: "RohanRice - Premium Rice Export Marketplace | Global Reach",
   description: "Premium rice export marketplace connecting certified rice farms with global buyers. Trusted by 500+ businesses in 50+ countries.",
@@ -91,3 +91,4 @@ export const structuredData = {
     },
   },
 };
+

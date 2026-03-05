@@ -1,5 +1,4 @@
-// next-auth.config.js
-import GoogleProvider from "next-auth/providers/google";
+﻿// next-auth.config.js
 import CredentialsProvider from "next-auth/providers/credentials";
 
 const getBaseUrl = () => {
@@ -47,15 +46,6 @@ const providers = [
   }),
 ];
 
-if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  providers.unshift(
-    GoogleProvider({
-      clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    })
-  );
-}
-
 export const authOptions = {
   providers,
   callbacks: {
@@ -90,3 +80,4 @@ export const authOptions = {
 };
 
 export default authOptions;
+

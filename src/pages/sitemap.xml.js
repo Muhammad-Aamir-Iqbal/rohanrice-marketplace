@@ -1,4 +1,4 @@
-// pages/sitemap.xml.js
+﻿// pages/sitemap.xml.js
 function generateSiteMap() {
   return `<?xml version="1.0" encoding="UTF-8"?>
    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -9,16 +9,19 @@ function generateSiteMap() {
        <loc>https://rohanrice.com/shop</loc>
      </url>
      <url>
-       <loc>https://rohanrice.com/about</loc>
+       <loc>https://rohanrice.com/blog</loc>
      </url>
      <url>
-       <loc>https://rohanrice.com/goals</loc>
+       <loc>https://rohanrice.com/about</loc>
      </url>
      <url>
        <loc>https://rohanrice.com/contact</loc>
      </url>
      <url>
        <loc>https://rohanrice.com/login</loc>
+     </url>
+     <url>
+       <loc>https://rohanrice.com/signup</loc>
      </url>
    </urlset>
  `;
@@ -36,3 +39,4 @@ export async function getServerSideProps({ res }) {
   };
 }
 export default SiteMap;
+

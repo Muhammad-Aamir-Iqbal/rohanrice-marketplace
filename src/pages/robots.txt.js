@@ -1,4 +1,4 @@
-// pages/robots.txt.js
+﻿// pages/robots.txt.js
 function robots() {
   // robots.txt is handled at build time
 }
@@ -7,10 +7,13 @@ export async function getServerSideProps({ res }) {
   const robots = `User-agent: *
 Allow: /
 Allow: /shop
+Allow: /blog
 Allow: /about
-Allow: /goals
 Allow: /contact
+Allow: /login
+Allow: /signup
 Disallow: /admin
+Disallow: /admin/*
 Disallow: /api
 Disallow: /*.json$
 Disallow: /api/*
@@ -34,3 +37,4 @@ Allow: /
 }
 
 export default robots;
+

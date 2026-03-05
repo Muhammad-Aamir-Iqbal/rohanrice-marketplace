@@ -1,280 +1,122 @@
-import React, { useState } from 'react';
-import Head from 'next/head';
+﻿import Head from 'next/head';
+import { useState } from 'react';
+import { useAppStore } from '@/context/AppStoreContext';
 
-export default function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    company: '',
-    email: '',
-    phone: '',
-    subject: 'general',
-    message: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+const initialForm = {
+  name: '',
+  email: '',
+  phone: '',
+  message: '',
+};
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+export default function ContactPage() {
+  const { submitContactMessage, data } = useAppStore();
+  const [formData, setFormData] = useState(initialForm);
+  const [status, setStatus] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        setSubmitted(true);
-        setFormData({ name: '', company: '', email: '', phone: '', subject: 'general', message: '' });
-        setTimeout(() => setSubmitted(false), 5000);
-      }
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    } finally {
-      setLoading(false);
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const response = submitContactMessage(formData);
+    setStatus(response.message);
+    if (response.success) {
+      setFormData(initialForm);
     }
+    setTimeout(() => setStatus(''), 2500);
   };
 
   return (
     <>
       <Head>
-        <title>Contact RohanRice - Bulk Export Inquiries</title>
-        <meta name="description" content="Contact RohanRice for bulk rice orders, export inquiries, and wholesale pricing. International buyers welcome." />
+        <title>Contact Us | Rohan Rice</title>
+        <meta name="description" content="Contact Rohan Rice in Narowal, Punjab, Pakistan for products, orders, and service support." />
       </Head>
 
-      {/* Hero */}
-      <section className="bg-gradient-premium py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-5xl font-serif font-bold text-charcoal mb-6">
-            Get in Touch
-          </h1>
-          <p className="text-xl text-gray-700 max-w-2xl">
-            Bulk inquiries, export orders, or partnership opportunities. Our team responds within 24 hours.
+      <section className="bg-gradient-premium py-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-4xl font-serif font-bold text-charcoal">Contact Us</h1>
+          <p className="text-gray-700 mt-3 max-w-3xl">
+            We are always happy to hear from our customers. If you have questions about our products, orders, or services, please feel free to contact us.
+            Our team will respond as quickly as possible to assist you.
           </p>
         </div>
       </section>
 
-      {/* Contact Section */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-16">
-            {/* Contact Info */}
-            <div className="space-y-8">
-              {[
-                {
-                  icon: '📍',
-                  title: 'Address',
-                  content: 'RohanRice Export House\nPunjab, India',
-                },
-                {
-                  icon: '📱',
-                  title: 'Phone',
-                  content: '+91-191-XXXX-XXXX\n+91-XXXX-XXXX-XXX',
-                },
-                {
-                  icon: '✉',
-                  title: 'Email',
-                  content: 'exports@rohanrice.com\nsales@rohanrice.com',
-                },
-                {
-                  icon: '🕒',
-                  title: 'Business Hours',
-                  content: 'Mon - Fri: 9 AM - 6 PM IST\nSat: 10 AM - 4 PM IST',
-                },
-              ].map((item, idx) => (
-                <div key={idx} className="card">
-                  <div className="text-4xl mb-3">{item.icon}</div>
-                  <h3 className="font-bold text-charcoal mb-2">{item.title}</h3>
-                  <p className="text-gray-600 whitespace-pre-line text-sm">{item.content}</p>
-                </div>
-              ))}
+      <section className="py-12 bg-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-6">
+          <article className="card-premium">
+            <h2 className="text-2xl font-serif font-bold">Contact Information</h2>
+            <div className="mt-4 space-y-2 text-sm text-gray-700">
+              <p><span className="font-semibold">Business Name:</span> {data.settings.businessName}</p>
+              <p><span className="font-semibold">Location:</span> {data.settings.location}</p>
+              <p><span className="font-semibold">Owner:</span> {data.settings.ownerName}</p>
+              <p><span className="font-semibold">Phone:</span> {data.settings.phone}</p>
+              <p><span className="font-semibold">Email:</span> {data.settings.email}</p>
             </div>
+            <p className="mt-4 text-rice-green-800 font-semibold">Your satisfaction is our priority.</p>
+          </article>
 
-            {/* Contact Form */}
-            <div className="lg:col-span-2">
-              <div className="card-premium">
-                <h2 className="text-3xl font-serif font-bold text-charcoal mb-8">Send us a Message</h2>
+          <article className="card-premium">
+            <h2 className="text-2xl font-serif font-bold">Send Message</h2>
 
-                {submitted && (
-                  <div className="mb-6 p-4 bg-rice-green-50 border border-rice-green-200 text-rice-green-700 rounded-lg">
-                    ✓ Message sent successfully! We'll get back to you soon.
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-charcoal mb-2">
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        placeholder="Your name"
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-charcoal mb-2">
-                        Company Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="company"
-                        value={formData.company}
-                        onChange={handleChange}
-                        placeholder="Your company"
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-charcoal mb-2">
-                        Email Address *
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="your@email.com"
-                        className="input-field"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-charcoal mb-2">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="+91-XXXX-XXXX-XXX"
-                        className="input-field"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-charcoal mb-2">
-                      Inquiry Type *
-                    </label>
-                    <select
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                    >
-                      <option value="general">General Inquiry</option>
-                      <option value="bulk-order">Bulk Order Request</option>
-                      <option value="pricing">Pricing & Quotation</option>
-                      <option value="partnership">Partnership Opportunity</option>
-                      <option value="investor">Investor Relations</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-charcoal mb-2">
-                      Message *
-                    </label>
-                    <textarea
-                      name="message"
-                      value={formData.message}
-                      onChange={handleChange}
-                      placeholder="Tell us about your rice requirements, quantity, timeline, etc."
-                      rows="6"
-                      className="input-field resize-none"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Sending...' : 'Send Inquiry'}
-                  </button>
-
-                  <p className="text-xs text-gray-500">
-                    We typically respond within 24 hours. For urgent issues, please call us directly.
-                  </p>
-                </form>
+            {status && (
+              <div className="mt-4 rounded-md px-3 py-2 bg-rice-green-50 border border-rice-green-200 text-rice-green-800 text-sm">
+                {status}
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* FAQ */}
-          <div className="border-t border-rice-beige-200 pt-16">
-            <h2 className="text-3xl font-serif font-bold text-charcoal mb-8 text-center">
-              Frequently Asked Questions
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {[
-                {
-                  q: 'What is the minimum order quantity?',
-                  a: 'Minimum order varies by rice variety (50-100 kg bags) but we accept bulk orders starting from 5 tons for wholesale pricing.',
-                },
-                {
-                  q: 'Do you offer samples?',
-                  a: 'Yes! We provide free samples for your testing before placing bulk orders. Shipping charges may apply.',
-                },
-                {
-                  q: 'What payment terms do you accept?',
-                  a: 'We accept LC (Letter of Credit), TT (Telegraphic Transfer), and pre-payment for bulk orders. Custom terms available.',
-                },
-                {
-                  q: 'How do you handle export documentation?',
-                  a: 'All export paperwork, certificates, and compliance documents are handled by our experienced team. We ensure smooth customs clearance.',
-                },
-              ].map((item, idx) => (
-                <div key={idx} className="card">
-                  <h3 className="font-bold text-charcoal mb-3">{item.q}</h3>
-                  <p className="text-gray-600 text-sm">{item.a}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Map Section (Placeholder) */}
-      <section className="py-16 md:py-24 bg-rice-beige-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-serif font-bold text-charcoal mb-8 text-center">
-            We Export to 50+ Countries
-          </h2>
-          
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center text-sm">
-            {[
-              'USA', 'UK', 'Italy', 'Germany', 'France',
-              'UAE', 'Saudi Arabia', 'Qatar', 'Kuwait', 'Oman',
-              'Singapore', 'Malaysia', 'Japan', 'Australia', 'Canada',
-            ].map((country, idx) => (
-              <div key={idx} className="bg-white p-4 rounded-lg border border-rice-gold-200">
-                <p className="font-semibold text-rice-green-700">{country}</p>
+            <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Name</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={formData.name}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, name: event.target.value }))}
+                  required
+                />
               </div>
-            ))}
-          </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1">Email</label>
+                <input
+                  type="email"
+                  className="input-field"
+                  value={formData.email}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, email: event.target.value }))}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1">Phone</label>
+                <input
+                  type="tel"
+                  className="input-field"
+                  placeholder="+92XXXXXXXXXX"
+                  value={formData.phone}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, phone: event.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1">Message</label>
+                <textarea
+                  className="input-field"
+                  rows={5}
+                  value={formData.message}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, message: event.target.value }))}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn-primary w-full">
+                Send Message
+              </button>
+            </form>
+          </article>
         </div>
       </section>
     </>
   );
 }
+

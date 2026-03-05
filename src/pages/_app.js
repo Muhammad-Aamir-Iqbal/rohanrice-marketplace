@@ -1,20 +1,43 @@
-import React from 'react';
-import { SessionProvider } from 'next-auth/react';
-import { AuthProvider } from '@/context/AuthContext';
+﻿import React from 'react';
+import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
+import AdminLayout from '@/components/AdminLayout';
+import { AppStoreProvider } from '@/context/AppStoreContext';
 import '@/styles/globals.css';
 
-export default function App({
-  Component,
-  pageProps: { session, ...pageProps },
-}) {
+const isAuthPage = (pathname) =>
+  ['/login', '/signup', '/admin/login', '/admin/signup'].includes(pathname);
+
+const isAdminPanelPage = (pathname) =>
+  pathname.startsWith('/admin') && !['/admin/login', '/admin/signup'].includes(pathname);
+
+function Shell({ Component, pageProps }) {
+  const router = useRouter();
+
+  if (isAuthPage(router.pathname)) {
+    return <Component {...pageProps} />;
+  }
+
+  if (isAdminPanelPage(router.pathname)) {
+    return (
+      <AdminLayout>
+        <Component {...pageProps} />
+      </AdminLayout>
+    );
+  }
+
   return (
-    <SessionProvider session={session}>
-      <AuthProvider>
-        <Layout>
-          <Component {...pageProps} />
-        </Layout>
-      </AuthProvider>
-    </SessionProvider>
+    <Layout>
+      <Component {...pageProps} />
+    </Layout>
   );
 }
+
+export default function App(props) {
+  return (
+    <AppStoreProvider>
+      <Shell {...props} />
+    </AppStoreProvider>
+  );
+}
+

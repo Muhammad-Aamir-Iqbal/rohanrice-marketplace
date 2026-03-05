@@ -1,7 +1,8 @@
-// src/utils/api.js
+﻿// src/utils/api.js
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/backend';
+const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+const API_BASE_URL = configuredBase.startsWith('/') ? configuredBase : '/api/backend';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -64,3 +65,4 @@ export const contactService = {
 };
 
 export default api;
+

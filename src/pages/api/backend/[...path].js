@@ -1,4 +1,4 @@
-import { createApp, initializeBackendServices } from '../../../../server/app.js';
+﻿import { createApp, initializeBackendServices } from '../../../../server/app.js';
 
 export const config = {
   api: {
@@ -39,3 +39,4 @@ export default async function handler(req, res) {
 
   return app(req, res);
 }
+

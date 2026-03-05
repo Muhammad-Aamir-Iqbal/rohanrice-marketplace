@@ -1,4 +1,4 @@
-// pages/api/auth/request-otp.js
+﻿// pages/api/auth/request-otp.js
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -17,3 +17,4 @@ export default async function handler(req, res) {
     debug: 'In production, check your email for the OTP code',
   });
 }
+

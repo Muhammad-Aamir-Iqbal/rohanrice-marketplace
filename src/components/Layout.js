@@ -1,105 +1,200 @@
-import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useSession, signOut } from 'next-auth/react';
 import Footer from './Footer';
+import { useAppStore } from '@/context/AppStoreContext';
+
+const publicLinks = [
+  { label: 'Home', href: '/' },
+  { label: 'Shop', href: '/shop' },
+  { label: 'Blog', href: '/blog' },
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+];
 
 export default function Layout({ children }) {
   const router = useRouter();
-  const { data: session } = useSession();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const {
+    isAuthenticated,
+    isAdmin,
+    isCustomer,
+    currentUser,
+    cartCount,
+    logout,
+    logVisitorEvent,
+    data,
+  } = useAppStore();
+
+  const [openMobile, setOpenMobile] = useState(false);
+
+  useEffect(() => {
+    if (!router.asPath) return;
+    logVisitorEvent({
+      page: router.asPath,
+      action: 'page_visit',
+    });
+  }, [logVisitorEvent, router.asPath]);
+
+  const businessName = data.settings?.businessName || 'Rohan Rice';
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-rice-beige-200 shadow-soft">
+    <div className="min-h-screen bg-rice-beige-50 flex flex-col">
+      <header className="sticky top-0 z-40 border-b border-rice-beige-200 bg-white/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
-              <div className="w-10 h-10 bg-gradient-rice rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">🌾</span>
+          <div className="h-16 flex items-center justify-between gap-4">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-md bg-gradient-rice text-white flex items-center justify-center font-bold">
+                RR
               </div>
               <div>
-                <h1 className="text-xl font-bold font-serif text-rice-green-700">RohanRice</h1>
-                <p className="text-xs text-rice-beige-600">Premium Rice Export</p>
+                <p className="font-serif text-lg font-bold text-rice-green-800 leading-none">{businessName}</p>
+                <p className="text-xs text-gray-500">Narowal, Punjab, Pakistan</p>
               </div>
             </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <Link href="/" className={`transition ${router.pathname === '/' ? 'text-rice-green-700 font-semibold' : 'text-gray-700 hover:text-rice-green-600'}`}>
-                Home
-              </Link>
-              <Link href="/shop" className={`transition ${router.pathname === '/shop' ? 'text-rice-green-700 font-semibold' : 'text-gray-700 hover:text-rice-green-600'}`}>
-                Marketplace
-              </Link>
-              <Link href="/goals" className={`transition ${router.pathname === '/goals' ? 'text-rice-green-700 font-semibold' : 'text-gray-700 hover:text-rice-green-600'}`}>
-                Goals
-              </Link>
-              <Link href="/about" className={`transition ${router.pathname === '/about' ? 'text-rice-green-700 font-semibold' : 'text-gray-700 hover:text-rice-green-600'}`}>
-                About
-              </Link>
-              <Link href="/contact" className={`transition ${router.pathname === '/contact' ? 'text-rice-green-700 font-semibold' : 'text-gray-700 hover:text-rice-green-600'}`}>
-                Contact
-              </Link>
+            <nav className="hidden md:flex items-center gap-5">
+              {publicLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`text-sm font-medium transition ${
+                    router.pathname === link.href
+                      ? 'text-rice-green-700'
+                      : 'text-gray-700 hover:text-rice-green-700'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </nav>
 
-            {/* Auth Section */}
-            <div className="flex items-center gap-4">
-              {session?.user ? (
-                <div className="flex items-center gap-4">
-                  {session.user.isAdmin && (
-                    <Link href="/admin" className="btn-secondary text-sm">
-                      Dashboard
+            <div className="hidden md:flex items-center gap-2">
+              <Link href="/cart" className="relative btn-ghost" aria-label="Open cart">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2m0 0L7 13h10l2-8H5.4zM7 13l-1 5h13M9 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z" />
+                </svg>
+                {isCustomer && cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 text-xs rounded-full bg-rice-green-700 text-white flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {isAuthenticated ? (
+                <>
+                  {isAdmin && (
+                    <Link href="/admin" className="btn-secondary text-sm px-4 py-2">
+                      Admin Dashboard
                     </Link>
                   )}
-                  <span className="text-sm text-gray-700">{session.user.name}</span>
-                  <button
-                    onClick={() => signOut()}
-                    className="btn-ghost text-sm"
-                  >
+                  {!isAdmin && (
+                    <>
+                      <Link href="/orders" className="btn-ghost text-sm px-3 py-2">
+                        My Orders
+                      </Link>
+                      <Link href="/profile" className="btn-ghost text-sm px-3 py-2">
+                        {currentUser?.name?.split(' ')[0] || 'Profile'}
+                      </Link>
+                    </>
+                  )}
+                  <button onClick={logout} className="btn-primary text-sm px-4 py-2">
                     Logout
                   </button>
-                </div>
+                </>
               ) : (
-                <Link href="/login" className="btn-primary text-sm">
-                  Login
-                </Link>
+                <>
+                  <Link href="/login" className="btn-ghost text-sm px-3 py-2">
+                    Login
+                  </Link>
+                  <Link href="/signup" className="btn-primary text-sm px-4 py-2">
+                    Register
+                  </Link>
+                  <Link href="/admin/login" className="btn-secondary text-sm px-4 py-2">
+                    Admin
+                  </Link>
+                </>
               )}
             </div>
 
-            {/* Mobile Menu Button */}
             <button
-              className="md:hidden text-gray-700 hover:text-rice-green-700"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              type="button"
+              className="md:hidden btn-ghost"
+              onClick={() => setOpenMobile((state) => !state)}
+              aria-label="Toggle navigation menu"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           </div>
 
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <nav className="md:hidden pb-4 space-y-2">
-              <Link href="/" className="block px-4 py-2 hover:bg-rice-beige-50 rounded">Home</Link>
-              <Link href="/shop" className="block px-4 py-2 hover:bg-rice-beige-50 rounded">Marketplace</Link>
-              <Link href="/goals" className="block px-4 py-2 hover:bg-rice-beige-50 rounded">Goals</Link>
-              <Link href="/about" className="block px-4 py-2 hover:bg-rice-beige-50 rounded">About</Link>
-              <Link href="/contact" className="block px-4 py-2 hover:bg-rice-beige-50 rounded">Contact</Link>
-            </nav>
+          {openMobile && (
+            <div className="md:hidden border-t border-rice-beige-200 py-3 space-y-2">
+              {publicLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="block px-2 py-2 rounded hover:bg-rice-beige-100"
+                  onClick={() => setOpenMobile(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <Link href="/cart" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                Cart {isCustomer ? `(${cartCount})` : ''}
+              </Link>
+
+              {isAuthenticated ? (
+                <>
+                  {!isAdmin && (
+                    <>
+                      <Link href="/orders" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                        My Orders
+                      </Link>
+                      <Link href="/profile" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                        Profile
+                      </Link>
+                    </>
+                  )}
+                  {isAdmin && (
+                    <Link href="/admin" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                      Admin Dashboard
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setOpenMobile(false);
+                    }}
+                    className="block w-full text-left px-2 py-2 rounded hover:bg-rice-beige-100"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                    Login
+                  </Link>
+                  <Link href="/signup" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                    Register
+                  </Link>
+                  <Link href="/admin/login" className="block px-2 py-2 rounded hover:bg-rice-beige-100" onClick={() => setOpenMobile(false)}>
+                    Admin Login
+                  </Link>
+                </>
+              )}
+            </div>
           )}
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
 
-      {/* Footer */}
       <Footer />
     </div>
   );
 }
+
