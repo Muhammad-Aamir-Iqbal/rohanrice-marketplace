@@ -34,15 +34,15 @@ export default function ProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
     const profileImage = await fileToDataUrl(file);
-    const response = updateCurrentProfile({ profileImage });
+    const response = await updateCurrentProfile({ profileImage });
     setStatus(response.message);
     setTimeout(() => setStatus(''), 2000);
   };
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
 
-    const response = updateCurrentProfile({
+    const response = await updateCurrentProfile({
       name: formData.name,
       phone: formData.phone,
     });

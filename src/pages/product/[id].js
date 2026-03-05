@@ -55,18 +55,18 @@ export default function ProductDetailPage() {
 
   const categoryName = getCategoryNameById(data.categories, product.categoryId);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!isCustomer) {
       router.push(`/login?next=/product/${product.id}`);
       return;
     }
 
-    const result = addToCart(product.id, 1);
+    const result = await addToCart(product.id, 1);
     setFeedback(result.message);
     setTimeout(() => setFeedback(''), 2200);
   };
 
-  const handleReviewSubmit = (event) => {
+  const handleReviewSubmit = async (event) => {
     event.preventDefault();
 
     if (!isCustomer) {
@@ -74,7 +74,7 @@ export default function ProductDetailPage() {
       return;
     }
 
-    const result = addReview({
+    const result = await addReview({
       productId: product.id,
       rating: Number(reviewRating),
       comment: reviewComment.trim(),

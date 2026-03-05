@@ -11,19 +11,21 @@ export default function AdminCategoriesPage() {
   const [editingId, setEditingId] = useState('');
   const [status, setStatus] = useState('');
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
 
     if (editingId) {
-      updateCategory(editingId, { name, description });
-      setStatus('Category updated.');
-      setEditingId('');
-      setName('');
-      setDescription('');
+      const response = await updateCategory(editingId, { name, description });
+      setStatus(response.message);
+      if (response.success) {
+        setEditingId('');
+        setName('');
+        setDescription('');
+      }
       return;
     }
 
-    const response = addCategory({ name, description });
+    const response = await addCategory({ name, description });
     setStatus(response.message);
 
     if (response.success) {
@@ -38,8 +40,8 @@ export default function AdminCategoriesPage() {
     setDescription(category.description || '');
   };
 
-  const handleDelete = (id) => {
-    const response = deleteCategory(id);
+  const handleDelete = async (id) => {
+    const response = await deleteCategory(id);
     setStatus(response.message);
   };
 

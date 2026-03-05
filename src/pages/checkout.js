@@ -45,10 +45,10 @@ export default function CheckoutPage() {
   const delivery = cartSubtotal > 5000 ? 0 : 250;
   const total = cartSubtotal + delivery;
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
 
-    const response = placeOrder({
+    const response = await placeOrder({
       address,
       notes,
       paymentMethod: 'cash_on_delivery',

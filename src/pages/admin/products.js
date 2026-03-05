@@ -48,17 +48,19 @@ export default function AdminProductsPage() {
     setFormData((prev) => ({ ...prev, image }));
   };
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
 
     if (editingId) {
-      updateProduct(editingId, formData);
-      setStatus('Product updated successfully.');
-      resetForm();
+      const response = await updateProduct(editingId, formData);
+      setStatus(response.message);
+      if (response.success) {
+        resetForm();
+      }
       return;
     }
 
-    const response = addProduct(formData);
+    const response = await addProduct(formData);
     setStatus(response.message);
 
     if (response.success) {
@@ -66,9 +68,9 @@ export default function AdminProductsPage() {
     }
   };
 
-  const onDelete = (productId) => {
-    deleteProduct(productId);
-    setStatus('Product deleted successfully.');
+  const onDelete = async (productId) => {
+    const response = await deleteProduct(productId);
+    setStatus(response.message);
   };
 
   return (

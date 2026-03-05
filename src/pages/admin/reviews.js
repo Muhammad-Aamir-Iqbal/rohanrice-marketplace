@@ -6,6 +6,14 @@ import { formatDate } from '@/utils/appHelpers';
 export default function AdminReviewsPage() {
   const { data, approveReview, deleteReview } = useAppStore();
 
+  const handleApprove = async (reviewId, approve) => {
+    await approveReview(reviewId, approve);
+  };
+
+  const handleDelete = async (reviewId) => {
+    await deleteReview(reviewId);
+  };
+
   return (
     <AdminRouteGuard>
       <Head>
@@ -35,11 +43,23 @@ export default function AdminReviewsPage() {
 
                 <div className="flex flex-wrap gap-2 mt-3">
                   {review.isApproved ? (
-                    <button type="button" className="btn-secondary text-xs px-3 py-1" onClick={() => approveReview(review.id, false)}>
+                    <button
+                      type="button"
+                      className="btn-secondary text-xs px-3 py-1"
+                      onClick={() => {
+                        void handleApprove(review.id, false);
+                      }}
+                    >
                       Unapprove
                     </button>
                   ) : (
-                    <button type="button" className="btn-primary text-xs px-3 py-1" onClick={() => approveReview(review.id, true)}>
+                    <button
+                      type="button"
+                      className="btn-primary text-xs px-3 py-1"
+                      onClick={() => {
+                        void handleApprove(review.id, true);
+                      }}
+                    >
                       Approve
                     </button>
                   )}
@@ -47,7 +67,9 @@ export default function AdminReviewsPage() {
                   <button
                     type="button"
                     className="px-3 py-1 text-xs rounded bg-red-50 text-red-700 border border-red-200"
-                    onClick={() => deleteReview(review.id)}
+                    onClick={() => {
+                      void handleDelete(review.id);
+                    }}
                   >
                     Delete
                   </button>

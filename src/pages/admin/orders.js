@@ -8,6 +8,10 @@ const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 
 export default function AdminOrdersPage() {
   const { data, updateOrderStatus } = useAppStore();
 
+  const handleStatusChange = async (orderId, status) => {
+    await updateOrderStatus(orderId, status);
+  };
+
   return (
     <AdminRouteGuard>
       <Head>
@@ -49,7 +53,9 @@ export default function AdminOrdersPage() {
                     <select
                       className="input-field text-sm"
                       value={order.orderStatus}
-                      onChange={(event) => updateOrderStatus(order.id, event.target.value)}
+                      onChange={(event) => {
+                        void handleStatusChange(order.id, event.target.value);
+                      }}
                     >
                       {statuses.map((status) => (
                         <option key={status} value={status}>{status}</option>

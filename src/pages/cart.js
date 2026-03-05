@@ -61,7 +61,9 @@ export default function CartPage() {
                         <button
                           type="button"
                           className="btn-secondary px-3 py-2"
-                          onClick={() => updateCartQuantity(item.productId, item.quantity - 1)}
+                          onClick={() => {
+                            void updateCartQuantity(item.productId, item.quantity - 1);
+                          }}
                         >
                           -
                         </button>
@@ -69,7 +71,9 @@ export default function CartPage() {
                         <button
                           type="button"
                           className="btn-secondary px-3 py-2"
-                          onClick={() => updateCartQuantity(item.productId, item.quantity + 1)}
+                          onClick={() => {
+                            void updateCartQuantity(item.productId, item.quantity + 1);
+                          }}
                         >
                           +
                         </button>
@@ -80,7 +84,9 @@ export default function CartPage() {
                         <button
                           type="button"
                           className="text-xs text-red-600 hover:text-red-700 mt-1"
-                          onClick={() => removeFromCart(item.productId)}
+                          onClick={() => {
+                            void removeFromCart(item.productId);
+                          }}
                         >
                           Remove
                         </button>
@@ -89,7 +95,13 @@ export default function CartPage() {
                   </article>
                 ))}
 
-                <button type="button" className="btn-ghost text-sm" onClick={clearCart}>
+                <button
+                  type="button"
+                  className="btn-ghost text-sm"
+                  onClick={() => {
+                    void clearCart();
+                  }}
+                >
                   Clear Cart
                 </button>
               </div>

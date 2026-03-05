@@ -39,13 +39,13 @@ export default function ShopPage() {
     return items;
   }, [categoryFilter, data.products, priceFilter, sortBy]);
 
-  const handleAddToCart = (productId) => {
+  const handleAddToCart = async (productId) => {
     if (!isCustomer) {
       router.push('/login?next=/shop');
       return;
     }
 
-    const result = addToCart(productId, 1);
+    const result = await addToCart(productId, 1);
     setFeedback(result.message);
     setTimeout(() => setFeedback(''), 2000);
   };

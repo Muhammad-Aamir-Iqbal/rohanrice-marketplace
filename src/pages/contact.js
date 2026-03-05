@@ -14,9 +14,9 @@ export default function ContactPage() {
   const [formData, setFormData] = useState(initialForm);
   const [status, setStatus] = useState('');
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const response = submitContactMessage(formData);
+    const response = await submitContactMessage(formData);
     setStatus(response.message);
     if (response.success) {
       setFormData(initialForm);

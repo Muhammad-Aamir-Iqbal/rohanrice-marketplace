@@ -31,17 +31,19 @@ export default function AdminBlogPage() {
     setFormData((prev) => ({ ...prev, image }));
   };
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
 
     if (editingId) {
-      updateBlogPost(editingId, formData);
-      setStatusMessage('Blog post updated.');
-      resetForm();
+      const response = await updateBlogPost(editingId, formData);
+      setStatusMessage(response.message);
+      if (response.success) {
+        resetForm();
+      }
       return;
     }
 
-    const response = addBlogPost(formData);
+    const response = await addBlogPost(formData);
     setStatusMessage(response.message);
     if (response.success) resetForm();
   };
@@ -55,6 +57,11 @@ export default function AdminBlogPage() {
       image: post.image || '',
       status: post.status || 'published',
     });
+  };
+
+  const handleDelete = async (id) => {
+    const response = await deleteBlogPost(id);
+    setStatusMessage(response.message);
   };
 
   return (
@@ -159,7 +166,9 @@ export default function AdminBlogPage() {
                     <button
                       type="button"
                       className="px-3 py-1 text-xs rounded bg-red-50 text-red-700 border border-red-200"
-                      onClick={() => deleteBlogPost(post.id)}
+                      onClick={() => {
+                        void handleDelete(post.id);
+                      }}
                     >
                       Delete
                     </button>

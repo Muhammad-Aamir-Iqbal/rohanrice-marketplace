@@ -16,6 +16,7 @@ import orderRoutes from './routes/orderRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
+import storeRoutes from './routes/storeRoutes.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -86,6 +87,7 @@ export const createApp = () => {
   app.use('/api/admin', adminRoutes);
   app.use('/api/messages', messageRoutes);
   app.use('/api/otp', otpRoutes);
+  app.use('/api/store', storeRoutes);
 
   app.use((req, res) => {
     res.status(404).json({

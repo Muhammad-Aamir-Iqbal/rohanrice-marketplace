@@ -13,10 +13,16 @@ export default function AdminSettingsPage() {
     setFormData(data.settings);
   }, [data.settings]);
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
-    updateSettings(formData);
-    setStatus('Settings saved successfully.');
+    const response = await updateSettings(formData);
+    setStatus(response.message);
+    setTimeout(() => setStatus(''), 2200);
+  };
+
+  const handleResetDemoData = async () => {
+    const response = await resetDemoData();
+    setStatus(response.message);
     setTimeout(() => setStatus(''), 2200);
   };
 
@@ -125,7 +131,9 @@ export default function AdminSettingsPage() {
           <button
             type="button"
             className="mt-5 px-4 py-2 text-sm rounded bg-red-50 text-red-700 border border-red-200"
-            onClick={resetDemoData}
+            onClick={() => {
+              void handleResetDemoData();
+            }}
           >
             Reset Complete Demo Data
           </button>

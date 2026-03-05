@@ -8,6 +8,10 @@ const statusOptions = ['new', 'read', 'resolved'];
 export default function AdminMessagesPage() {
   const { data, markMessageStatus } = useAppStore();
 
+  const handleStatusChange = async (messageId, status) => {
+    await markMessageStatus(messageId, status);
+  };
+
   return (
     <AdminRouteGuard>
       <Head>
@@ -33,7 +37,9 @@ export default function AdminMessagesPage() {
                 <select
                   className="input-field text-sm max-w-[150px]"
                   value={message.status}
-                  onChange={(event) => markMessageStatus(message.id, event.target.value)}
+                  onChange={(event) => {
+                    void handleStatusChange(message.id, event.target.value);
+                  }}
                 >
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>{option}</option>
