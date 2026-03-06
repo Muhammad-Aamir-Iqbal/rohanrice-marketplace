@@ -493,46 +493,53 @@ const upgradeLegacyOrderStatuses = async () => {
 };
 
 const ensureSeedData = async () => {
-  const settingsCount = await StoreSettings.countDocuments();
-  if (!settingsCount) {
-    await StoreSettings.create({
-      key: 'default',
-      ...defaultSettings,
-    });
-  }
+  await StoreSettings.updateOne(
+    { key: 'default' },
+    { $setOnInsert: { key: 'default', ...defaultSettings } },
+    { upsert: true }
+  );
   await ensureSettingsUpgraded();
 
-  const categoryCount = await StoreCategory.countDocuments();
-  if (!categoryCount) {
-    await StoreCategory.insertMany(defaultCategories);
+  for (const category of defaultCategories) {
+    await StoreCategory.updateOne(
+      { name: category.name },
+      { $setOnInsert: category },
+      { upsert: true }
+    );
   }
 
-  const productCount = await StoreProduct.countDocuments();
-  if (!productCount) {
-    const categories = await StoreCategory.find().lean();
-    const categoryIdByName = categories.reduce((acc, category) => {
-      acc[category.name] = category._id;
-      return acc;
-    }, {});
+  const categories = await StoreCategory.find().lean();
+  const categoryIdByName = categories.reduce((acc, category) => {
+    acc[category.name] = category._id;
+    return acc;
+  }, {});
 
-    const productDocs = defaultProducts.map((product) => ({
-      name: product.name,
-      categoryId: categoryIdByName[product.categoryName],
-      pricePerKg: product.pricePerKg,
-      stockQuantity: product.stockQuantity,
-      description: product.description,
-      image: product.image,
-      isFeatured: product.isFeatured,
-      rating: 0,
-      reviewCount: 0,
-    }));
-
-    await StoreProduct.insertMany(productDocs);
+  for (const product of defaultProducts) {
+    await StoreProduct.updateOne(
+      { name: product.name },
+      {
+        $setOnInsert: {
+          name: product.name,
+          categoryId: categoryIdByName[product.categoryName],
+          pricePerKg: product.pricePerKg,
+          stockQuantity: product.stockQuantity,
+          description: product.description,
+          image: product.image,
+          isFeatured: product.isFeatured,
+          rating: 0,
+          reviewCount: 0,
+        },
+      },
+      { upsert: true }
+    );
   }
 
-  const blogCount = await StoreBlogPost.countDocuments();
-  if (!blogCount) {
-    await StoreBlogPost.insertMany(defaultBlogPosts);
+  for (const blogPost of defaultBlogPosts) {
+    await StoreBlogPost.updateOne(
+      { slug: blogPost.slug },
+      { $setOnInsert: blogPost },
+      { upsert: true }
+    );
   }
 
   const workerCount = await StoreWorker.countDocuments();
@@ -546,6 +553,30 @@ const ensureSeedData = async () => {
       status: 'active',
       notes: 'Default worker account. Change credentials from admin panel.',
     });
+  }
+
+  const allProducts = await StoreProduct.find().sort({ createdAt: 1 }).lean();
+  const seenProductName = new Set();
+  const duplicateProductIds = [];
+  for (const product of allProducts) {
+    if (seenProductName.has(product.name)) {
+      duplicateProductIds.push(product._id);
+    } else {
+      seenProductName.add(product.name);
+    }
+  }
+  if (duplicateProductIds.length) {
+    const refs = await Promise.all([
+      StoreOrder.countDocuments({ 'items.productId': { $in: duplicateProductIds } }),
+      StoreOrderItem.countDocuments({ productId: { $in: duplicateProductIds } }),
+      StoreReview.countDocuments({ productId: { $in: duplicateProductIds } }),
+      StoreCart.countDocuments({ 'items.productId': { $in: duplicateProductIds } }),
+      StoreLedger.countDocuments({ productId: { $in: duplicateProductIds } }),
+    ]);
+    const totalRefs = refs.reduce((sum, count) => sum + count, 0);
+    if (!totalRefs) {
+      await StoreProduct.deleteMany({ _id: { $in: duplicateProductIds } });
+    }
   }
 
   await upgradeLegacyOrderStatuses();
