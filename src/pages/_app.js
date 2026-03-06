@@ -2,14 +2,18 @@
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import AdminLayout from '@/components/AdminLayout';
+import WorkerLayout from '@/components/WorkerLayout';
 import { AppStoreProvider } from '@/context/AppStoreContext';
 import '@/styles/globals.css';
 
 const isAuthPage = (pathname) =>
-  ['/login', '/signup', '/admin/login', '/admin/signup'].includes(pathname);
+  ['/login', '/signup', '/admin/login', '/admin/signup', '/worker/login'].includes(pathname);
 
 const isAdminPanelPage = (pathname) =>
   pathname.startsWith('/admin') && !['/admin/login', '/admin/signup'].includes(pathname);
+
+const isWorkerPanelPage = (pathname) =>
+  pathname.startsWith('/worker') && pathname !== '/worker/login';
 
 function Shell({ Component, pageProps }) {
   const router = useRouter();
@@ -23,6 +27,14 @@ function Shell({ Component, pageProps }) {
       <AdminLayout>
         <Component {...pageProps} />
       </AdminLayout>
+    );
+  }
+
+  if (isWorkerPanelPage(router.pathname)) {
+    return (
+      <WorkerLayout>
+        <Component {...pageProps} />
+      </WorkerLayout>
     );
   }
 

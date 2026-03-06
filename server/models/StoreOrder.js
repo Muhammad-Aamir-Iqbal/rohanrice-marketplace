@@ -1,5 +1,16 @@
 import mongoose from 'mongoose';
 
+const ORDER_STATUSES = [
+  'PENDING_PAYMENT',
+  'PENDING_PAYMENT_VERIFICATION',
+  'CONFIRMED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'PAID',
+  'COMPLETED',
+  'CANCELLED',
+];
+
 const storeOrderItemSchema = new mongoose.Schema(
   {
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'StoreProduct', required: true },
@@ -21,12 +32,23 @@ const storeOrderSchema = new mongoose.Schema(
     subtotal: { type: Number, required: true, min: 0 },
     deliveryCharge: { type: Number, required: true, min: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
-    paymentMethod: { type: String, default: 'cash_on_delivery' },
+    paymentMethod: {
+      type: String,
+      enum: ['cash_on_delivery', 'easypaisa', 'jazzcash'],
+      default: 'cash_on_delivery',
+    },
     orderStatus: {
       type: String,
-      enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
-      default: 'pending',
+      enum: ORDER_STATUSES,
+      default: 'PENDING_PAYMENT',
+      index: true,
     },
+    workerId: { type: mongoose.Schema.Types.ObjectId, ref: 'StoreWorker', default: null, index: true },
+    stockDeducted: { type: Boolean, default: false },
+    paidAt: { type: Date, default: null },
+    deliveredAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    failedPaymentVerifications: { type: Number, default: 0, min: 0 },
     address: {
       fullName: { type: String, required: true },
       phone: { type: String, required: true },

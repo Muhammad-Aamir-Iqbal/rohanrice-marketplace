@@ -77,6 +77,46 @@ export default function AdminSettingsPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-semibold mb-1">WhatsApp Number</label>
+              <input
+                className="input-field"
+                value={formData.whatsappNumber || ''}
+                onChange={(event) => setFormData((prev) => ({ ...prev, whatsappNumber: event.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">EasyPaisa Number</label>
+              <input
+                className="input-field"
+                value={formData.easyPaisaNumber || ''}
+                onChange={(event) => setFormData((prev) => ({ ...prev, easyPaisaNumber: event.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">JazzCash Number</label>
+              <input
+                className="input-field"
+                value={formData.jazzCashNumber || ''}
+                onChange={(event) => setFormData((prev) => ({ ...prev, jazzCashNumber: event.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">EasyPaisa QR Image URL/Base64</label>
+              <input
+                className="input-field"
+                value={formData.easyPaisaQrImage || ''}
+                onChange={(event) => setFormData((prev) => ({ ...prev, easyPaisaQrImage: event.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">JazzCash QR Image URL/Base64</label>
+              <input
+                className="input-field"
+                value={formData.jazzCashQrImage || ''}
+                onChange={(event) => setFormData((prev) => ({ ...prev, jazzCashQrImage: event.target.value }))}
+              />
+            </div>
+            <div>
               <label className="block text-sm font-semibold mb-1">Location</label>
               <input
                 className="input-field"

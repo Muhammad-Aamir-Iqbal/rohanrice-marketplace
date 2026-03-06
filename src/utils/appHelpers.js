@@ -41,7 +41,10 @@ export const getSalesSummary = (orders = []) => {
     totalRevenue: 0,
   };
 
+  const paidStatuses = new Set(['PAID', 'COMPLETED']);
+
   orders.forEach((order) => {
+    if (!paidStatuses.has(order.orderStatus)) return;
     const orderDate = new Date(order.createdAt);
     const amount = Number(order.totalAmount || 0);
 
@@ -65,8 +68,10 @@ export const getSalesSummary = (orders = []) => {
 
 export const getTopCategory = (orders = [], products = [], categories = []) => {
   const categoryTotals = {};
+  const paidStatuses = new Set(['PAID', 'COMPLETED']);
 
   orders.forEach((order) => {
+    if (!paidStatuses.has(order.orderStatus)) return;
     order.items.forEach((item) => {
       const product = products.find((prd) => prd.id === item.productId);
       if (!product) return;
@@ -121,8 +126,10 @@ export const getDailyVisitors = (visitorLogs = [], days = 7) => {
 
 export const getPopularProducts = (orders = [], products = []) => {
   const totals = {};
+  const paidStatuses = new Set(['PAID', 'COMPLETED']);
 
   orders.forEach((order) => {
+    if (!paidStatuses.has(order.orderStatus)) return;
     order.items.forEach((item) => {
       totals[item.productId] = (totals[item.productId] || 0) + Number(item.quantity || 0);
     });

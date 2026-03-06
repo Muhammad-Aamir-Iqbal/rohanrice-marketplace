@@ -13,6 +13,14 @@ export default function ContactPage() {
   const { submitContactMessage, data } = useAppStore();
   const [formData, setFormData] = useState(initialForm);
   const [status, setStatus] = useState('');
+  const whatsappNumber = data.settings?.whatsappNumber || data.settings?.phone || '';
+  const whatsappDigits = String(whatsappNumber || '').replace(/\D/g, '');
+  const whatsappIntl = whatsappDigits.startsWith('0')
+    ? `92${whatsappDigits.slice(1)}`
+    : whatsappDigits.startsWith('92')
+      ? whatsappDigits
+      : `92${whatsappDigits}`;
+  const whatsappUrl = `https://wa.me/${whatsappIntl}`;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -52,6 +60,18 @@ export default function ContactPage() {
               <p><span className="font-semibold">Phone:</span> {data.settings.phone}</p>
               <p><span className="font-semibold">Email:</span> {data.settings.email}</p>
             </div>
+            {whatsappDigits ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-rice-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rice-green-700"
+              >
+                Contact on WhatsApp
+              </a>
+            ) : (
+              <p className="mt-4 text-xs text-gray-500">WhatsApp is not configured in settings.</p>
+            )}
             <p className="mt-4 text-rice-green-800 font-semibold">Your satisfaction is our priority.</p>
           </article>
 

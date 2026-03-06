@@ -20,6 +20,9 @@ export default function AdminDashboardPage() {
   const popularPages = getPopularPages(data.visitorLogs);
 
   const totalVisitors = new Set(data.visitorLogs.map((log) => log.visitorId)).size;
+  const ordersToday = data.orders.filter((order) => order.createdAt?.slice(0, 10) === new Date().toISOString().slice(0, 10)).length;
+  const pendingPayments = data.payments.filter((payment) => payment.verificationStatus === 'pending').length;
+  const openFraudAlerts = data.fraudAlerts.filter((alert) => alert.status !== 'resolved').length;
 
   const maxVisitors = Math.max(...visitorSeries.map((item) => item.visitors), 1);
 
@@ -66,6 +69,21 @@ export default function AdminDashboardPage() {
             <p className="text-xs text-gray-500">Top Selling Category</p>
             <p className="text-sm font-semibold text-rice-green-700 mt-1">{topCategory.category}</p>
             <p className="text-xs text-gray-500">{formatCurrency(topCategory.value)}</p>
+          </article>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-4 mt-5">
+          <article className="card-premium">
+            <p className="text-xs text-gray-500">Orders Today</p>
+            <p className="text-2xl font-bold text-rice-green-700 mt-1">{ordersToday}</p>
+          </article>
+          <article className="card-premium">
+            <p className="text-xs text-gray-500">Pending Payment Verifications</p>
+            <p className="text-2xl font-bold text-rice-green-700 mt-1">{pendingPayments}</p>
+          </article>
+          <article className="card-premium">
+            <p className="text-xs text-gray-500">Open Fraud Alerts</p>
+            <p className="text-2xl font-bold text-rice-green-700 mt-1">{openFraudAlerts}</p>
           </article>
         </div>
 

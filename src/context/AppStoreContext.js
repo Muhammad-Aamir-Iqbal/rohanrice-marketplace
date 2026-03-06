@@ -13,9 +13,13 @@ const defaultSession = {
 const emptyData = {
   admins: [],
   customers: [],
+  workers: [],
   categories: [],
   products: [],
   orders: [],
+  payments: [],
+  ledger: [],
+  fraudAlerts: [],
   reviews: [],
   blogPosts: [],
   visitorLogs: [],
@@ -163,6 +167,7 @@ export function AppStoreProvider({ children }) {
   const isAuthenticated = Boolean(session.token && currentUser);
   const isAdmin = isAuthenticated && session.role === 'admin';
   const isCustomer = isAuthenticated && session.role === 'customer';
+  const isWorker = isAuthenticated && session.role === 'worker';
 
   const cartItems = useMemo(() => {
     if (!isCustomer || !currentUser?.id) return [];
@@ -239,6 +244,27 @@ export function AppStoreProvider({ children }) {
         const payload = await apiCall('/auth/login', {
           method: 'POST',
           body: { role, email, password },
+        });
+
+        const nextSession = {
+          token: payload.token,
+          role: payload.role,
+          userId: payload.user?.id || '',
+        };
+        setSession(nextSession);
+        setCurrentUser(payload.user || null);
+        await refreshData(payload.token);
+        return payload;
+      }),
+    [refreshData]
+  );
+
+  const loginWorker = useCallback(
+    async ({ phone, password }) =>
+      withResult(async () => {
+        const payload = await apiCall('/auth/worker/login', {
+          method: 'POST',
+          body: { phone, password },
         });
 
         const nextSession = {
@@ -363,12 +389,19 @@ export function AppStoreProvider({ children }) {
   );
 
   const placeOrder = useCallback(
-    async ({ address, notes = '', paymentMethod = 'cash_on_delivery' }) =>
+    async ({
+      address,
+      notes = '',
+      paymentMethod = 'cash_on_delivery',
+      transactionId = '',
+      senderPhone = '',
+      paymentProofImage = '',
+    }) =>
       withResult(async () => {
-        const payload = await apiCall('/orders', {
+        const payload = await apiCall('/orders/create', {
           method: 'POST',
           token: session.token,
-          body: { address, notes, paymentMethod },
+          body: { address, notes, paymentMethod, transactionId, senderPhone, paymentProofImage },
         });
         await refreshData(session.token);
         return payload;
@@ -538,6 +571,117 @@ export function AppStoreProvider({ children }) {
     [refreshData, session.token]
   );
 
+  const assignWorkerToOrder = useCallback(
+    async (orderId, workerId) =>
+      withResult(async () => {
+        const payload = await apiCall(`/admin/orders/${orderId}/assign-worker`, {
+          method: 'POST',
+          token: session.token,
+          body: { workerId },
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const uploadPaymentProof = useCallback(
+    async ({ orderId, paymentMethod, transactionId, senderPhone, paymentProofImage }) =>
+      withResult(async () => {
+        const payload = await apiCall('/payments/upload', {
+          method: 'POST',
+          token: session.token,
+          body: { orderId, paymentMethod, transactionId, senderPhone, paymentProofImage },
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const verifyPayment = useCallback(
+    async (paymentId, approve = true, rejectionReason = '') =>
+      withResult(async () => {
+        const payload = await apiCall(`/admin/payments/${paymentId}/verify`, {
+          method: 'PATCH',
+          token: session.token,
+          body: { approve, rejectionReason },
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const markOrderPaid = useCallback(
+    async ({ orderId, paymentProofImage = '', transactionId = '', senderPhone = '', complete = true }) =>
+      withResult(async () => {
+        const payload = await apiCall('/orders/mark-paid', {
+          method: 'POST',
+          token: session.token,
+          body: { orderId, paymentProofImage, transactionId, senderPhone, complete },
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const markOrderDelivered = useCallback(
+    async (orderId) =>
+      withResult(async () => {
+        const payload = await apiCall(`/worker/orders/${orderId}/delivered`, {
+          method: 'POST',
+          token: session.token,
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const addWorker = useCallback(
+    async (workerInput) =>
+      withResult(async () => {
+        const payload = await apiCall('/admin/workers', {
+          method: 'POST',
+          token: session.token,
+          body: workerInput,
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const updateWorker = useCallback(
+    async (workerId, updates) =>
+      withResult(async () => {
+        const payload = await apiCall(`/admin/workers/${workerId}`, {
+          method: 'PUT',
+          token: session.token,
+          body: updates,
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
+  const updateFraudAlertStatus = useCallback(
+    async (alertId, status) =>
+      withResult(async () => {
+        const payload = await apiCall(`/admin/fraud-alerts/${alertId}/status`, {
+          method: 'PATCH',
+          token: session.token,
+          body: { status },
+        });
+        await refreshData(session.token);
+        return payload;
+      }),
+    [refreshData, session.token]
+  );
+
   const addBlogPost = useCallback(
     async ({ title, excerpt, content, image = '', status = 'published' }) =>
       withResult(async () => {
@@ -614,6 +758,7 @@ export function AppStoreProvider({ children }) {
     isAuthenticated,
     isAdmin,
     isCustomer,
+    isWorker,
     cartItems,
     cartCount,
     cartSubtotal,
@@ -622,6 +767,7 @@ export function AppStoreProvider({ children }) {
     registerAccount,
     verifyAccountOtp,
     login,
+    loginWorker,
     logout,
     updateCurrentProfile,
     addToCart,
@@ -641,6 +787,14 @@ export function AppStoreProvider({ children }) {
     updateProduct,
     deleteProduct,
     updateOrderStatus,
+    assignWorkerToOrder,
+    uploadPaymentProof,
+    verifyPayment,
+    markOrderPaid,
+    markOrderDelivered,
+    addWorker,
+    updateWorker,
+    updateFraudAlertStatus,
     addBlogPost,
     updateBlogPost,
     deleteBlogPost,

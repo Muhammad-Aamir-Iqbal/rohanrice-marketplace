@@ -33,6 +33,18 @@ export default function Footer() {
             <p className="text-sm text-rice-beige-200">{settings.footerTagline || 'Premium Rice. Trusted Quality.'}</p>
             <p className="text-xs mt-4 text-rice-beige-300">Owner: {settings.ownerName || 'Zeeshan Ali'}</p>
             <p className="text-xs text-rice-beige-300">Location: {settings.location || 'Narowal, Punjab, Pakistan'}</p>
+            <p className="text-xs text-rice-beige-300">Phone: {settings.phone || '03127871406'}</p>
+            <p className="text-xs text-rice-beige-300">Email: {settings.email || 'rohaansaith1911@gmail.com'}</p>
+            {settings.whatsappNumber && (
+              <a
+                href={`https://wa.me/${String(settings.whatsappNumber).replace(/\D/g, '').replace(/^0/, '92')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs text-rice-green-200 hover:text-white"
+              >
+                WhatsApp: {settings.whatsappNumber}
+              </a>
+            )}
             <p className="text-xs mt-3 text-rice-beige-300">
               {settings.founderCredit || 'This platform was founded and built by the founder.'}
             </p>

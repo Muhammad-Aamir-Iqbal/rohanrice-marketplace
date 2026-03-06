@@ -46,7 +46,7 @@ export default function OrdersPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-rice-green-700 font-semibold">{formatCurrency(order.totalAmount)}</p>
-                      <p className="text-xs text-gray-500 capitalize">Status: {order.orderStatus}</p>
+                      <p className="text-xs text-gray-500 capitalize">Status: {String(order.orderStatus || '').replace(/_/g, ' ')}</p>
                     </div>
                   </div>
 

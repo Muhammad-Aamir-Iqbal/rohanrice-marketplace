@@ -16,6 +16,10 @@ import StoreVisitorLog from '../models/StoreVisitorLog.js';
 import StoreContactMessage from '../models/StoreContactMessage.js';
 import StoreOtpSession from '../models/StoreOtpSession.js';
 import StoreSettings from '../models/StoreSettings.js';
+import StorePayment from '../models/StorePayment.js';
+import StoreWorker from '../models/StoreWorker.js';
+import StoreLedger from '../models/StoreLedger.js';
+import StoreFraudAlert from '../models/StoreFraudAlert.js';
 import { sendOTPEmail } from '../services/emailService.js';
 import { sendOTPSMS } from '../services/smsService.js';
 import { defaultBlogPosts, defaultCategories, defaultProducts, defaultSettings } from '../data/storeSeed.js';
@@ -25,6 +29,35 @@ const router = express.Router();
 const PHONE_REGEX = /^\+92\d{10}$/;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
+const STATUS_FLOW = {
+  PENDING_PAYMENT: 'PENDING_PAYMENT',
+  PENDING_PAYMENT_VERIFICATION: 'PENDING_PAYMENT_VERIFICATION',
+  CONFIRMED: 'CONFIRMED',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  DELIVERED: 'DELIVERED',
+  PAID: 'PAID',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+};
+const PAYMENT_METHODS = ['cash_on_delivery', 'easypaisa', 'jazzcash'];
+const ADMIN_SETTABLE_ORDER_STATUSES = [
+  STATUS_FLOW.PENDING_PAYMENT,
+  STATUS_FLOW.PENDING_PAYMENT_VERIFICATION,
+  STATUS_FLOW.CONFIRMED,
+  STATUS_FLOW.OUT_FOR_DELIVERY,
+  STATUS_FLOW.DELIVERED,
+  STATUS_FLOW.PAID,
+  STATUS_FLOW.COMPLETED,
+  STATUS_FLOW.CANCELLED,
+];
+const normalizePakPhone = (raw = '') => {
+  const value = String(raw || '').replace(/[^\d+]/g, '');
+  if (!value) return '';
+  if (value.startsWith('+92')) return value;
+  if (value.startsWith('92')) return `+${value}`;
+  if (value.startsWith('0')) return `+92${value.slice(1)}`;
+  return value.startsWith('+') ? value : `+${value}`;
+};
 
 const toId = (value) => {
   if (!value) return '';
@@ -119,6 +152,7 @@ const serializeOrder = (doc) => ({
   customerId: toId(doc.customerId),
   customerName: doc.customerName,
   customerEmail: doc.customerEmail,
+  workerId: toId(doc.workerId),
   items: (doc.items || []).map((item) => ({
     id: toId(item._id),
     productId: toId(item.productId),
@@ -131,7 +165,12 @@ const serializeOrder = (doc) => ({
   deliveryCharge: Number(doc.deliveryCharge || 0),
   totalAmount: Number(doc.totalAmount || 0),
   paymentMethod: doc.paymentMethod || 'cash_on_delivery',
-  orderStatus: doc.orderStatus || 'pending',
+  orderStatus: doc.orderStatus || STATUS_FLOW.PENDING_PAYMENT,
+  stockDeducted: Boolean(doc.stockDeducted),
+  paidAt: doc.paidAt,
+  deliveredAt: doc.deliveredAt,
+  completedAt: doc.completedAt,
+  failedPaymentVerifications: Number(doc.failedPaymentVerifications || 0),
   address: doc.address,
   notes: doc.notes || '',
   createdAt: doc.createdAt,
@@ -164,14 +203,75 @@ const serializeVisitorLog = (doc) => ({
 const serializeSettings = (doc) => ({
   businessName: doc.businessName || 'Rohan Rice',
   ownerName: doc.ownerName || 'Zeeshan Ali',
-  email: doc.email || 'info@rohanrice.com',
-  phone: doc.phone || '+92 XXX XXX XXXX',
+  email: doc.email || 'rohaansaith1911@gmail.com',
+  phone: doc.phone || '03127871406',
+  whatsappNumber: doc.whatsappNumber || '03127871406',
+  easyPaisaNumber: doc.easyPaisaNumber || '03127871406',
+  jazzCashNumber: doc.jazzCashNumber || '03XX-XXXXXXX',
+  easyPaisaQrImage: doc.easyPaisaQrImage || '',
+  jazzCashQrImage: doc.jazzCashQrImage || '',
   location: doc.location || 'Narowal, Punjab, Pakistan',
   heroTagline: doc.heroTagline || 'Premium Rice From the Heart of Punjab.',
   footerTagline: doc.footerTagline || 'Premium Rice. Trusted Quality.',
   founderCredit: doc.founderCredit || 'This platform was founded and built by the founder.',
   techRights:
     doc.techRights || 'All technical architecture, source code, and platform rights are reserved by the founder.',
+  updatedAt: doc.updatedAt,
+});
+
+const serializePayment = (doc) => ({
+  id: toId(doc._id),
+  orderId: toId(doc.orderId),
+  paymentMethod: doc.paymentMethod,
+  amount: Number(doc.amount || 0),
+  transactionId: doc.transactionId || '',
+  senderPhone: doc.senderPhone || '',
+  paymentProofImage: doc.paymentProofImage || '',
+  verificationStatus: doc.verificationStatus || 'pending',
+  verified: Boolean(doc.verified),
+  verifiedByAdmin: toId(doc.verifiedByAdmin),
+  verifiedAt: doc.verifiedAt,
+  rejectionReason: doc.rejectionReason || '',
+  failedAttempts: Number(doc.failedAttempts || 0),
+  createdByWorker: toId(doc.createdByWorker),
+  createdAt: doc.createdAt,
+  updatedAt: doc.updatedAt,
+});
+
+const serializeWorker = (doc) => ({
+  id: toId(doc._id),
+  name: doc.name,
+  phone: doc.phone,
+  email: doc.email || '',
+  profileImage: doc.profileImage || '',
+  status: doc.status || 'active',
+  notes: doc.notes || '',
+  createdAt: doc.createdAt,
+  updatedAt: doc.updatedAt,
+});
+
+const serializeLedgerEntry = (doc) => ({
+  id: toId(doc._id),
+  type: doc.type,
+  productId: toId(doc.productId),
+  quantity: Number(doc.quantity || 0),
+  amount: Number(doc.amount || 0),
+  orderId: toId(doc.orderId),
+  workerId: toId(doc.workerId),
+  notes: doc.notes || '',
+  createdAt: doc.createdAt,
+  updatedAt: doc.updatedAt,
+});
+
+const serializeFraudAlert = (doc) => ({
+  id: toId(doc._id),
+  orderId: toId(doc.orderId),
+  workerId: toId(doc.workerId),
+  type: doc.type,
+  severity: doc.severity || 'medium',
+  details: doc.details,
+  status: doc.status || 'open',
+  createdAt: doc.createdAt,
   updatedAt: doc.updatedAt,
 });
 
@@ -213,6 +313,12 @@ const getAuthFromRequest = async (req) => {
     return { role: 'customer', token, user: customer, userId: toId(customer._id) };
   }
 
+  if (decoded.role === 'worker') {
+    const worker = await StoreWorker.findById(decoded.userId).lean();
+    if (!worker || worker.status !== 'active') return null;
+    return { role: 'worker', token, user: worker, userId: toId(worker._id) };
+  }
+
   return null;
 };
 
@@ -235,6 +341,13 @@ const requireAdmin = (req, res, next) => {
 const requireCustomer = (req, res, next) => {
   if (!req.auth || req.auth.role !== 'customer') {
     return res.status(403).json({ success: false, message: 'Customer access required' });
+  }
+  next();
+};
+
+const requireWorker = (req, res, next) => {
+  if (!req.auth || req.auth.role !== 'worker') {
+    return res.status(403).json({ success: false, message: 'Worker access required' });
   }
   next();
 };
@@ -273,6 +386,112 @@ const recalculateProductRating = async (productId) => {
   });
 };
 
+const createFraudAlert = async ({ orderId = null, workerId = null, type, details, severity = 'medium' }) => {
+  const payload = {
+    orderId: orderId || null,
+    workerId: workerId || null,
+    type,
+    details,
+    severity,
+  };
+  await StoreFraudAlert.create(payload);
+};
+
+const createOrderSaleLedgerEntries = async (order) => {
+  const orderId = toId(order._id);
+  const existing = await StoreLedger.countDocuments({ type: 'sale', orderId });
+  if (existing > 0) return;
+
+  const docs = (order.items || []).map((item) => ({
+    type: 'sale',
+    productId: item.productId,
+    quantity: Number(item.quantity || 0),
+    amount: Number(item.lineTotal || 0),
+    orderId: order._id,
+    workerId: order.workerId || null,
+    notes: `Order ${order.orderNumber}`,
+  }));
+  if (docs.length) {
+    await StoreLedger.insertMany(docs);
+  }
+};
+
+const completeOrderFinancials = async (orderId) => {
+  const order = await StoreOrder.findById(orderId);
+  if (!order) return null;
+
+  if (!order.stockDeducted) {
+    for (const item of order.items) {
+      await StoreProduct.findByIdAndUpdate(item.productId, {
+        $inc: { stockQuantity: -Number(item.quantity || 0) },
+      });
+    }
+    order.stockDeducted = true;
+  }
+
+  await createOrderSaleLedgerEntries(order);
+
+  order.orderStatus = STATUS_FLOW.COMPLETED;
+  if (!order.completedAt) {
+    order.completedAt = new Date();
+  }
+
+  await order.save();
+  return order.toObject();
+};
+
+const ensureSettingsUpgraded = async () => {
+  const settings = await StoreSettings.findOne({ key: 'default' });
+  if (!settings) return;
+
+  let changed = false;
+  const upgrades = {
+    email: 'rohaansaith1911@gmail.com',
+    phone: '03127871406',
+    whatsappNumber: '03127871406',
+    easyPaisaNumber: '03127871406',
+    jazzCashNumber: '03XX-XXXXXXX',
+  };
+
+  for (const [key, value] of Object.entries(upgrades)) {
+    if (!settings[key] || String(settings[key]).includes('XXX') || settings[key] === 'info@rohanrice.com') {
+      settings[key] = value;
+      changed = true;
+    }
+  }
+
+  if (!settings.founderCredit) {
+    settings.founderCredit = defaultSettings.founderCredit;
+    changed = true;
+  }
+  if (!settings.techRights) {
+    settings.techRights = defaultSettings.techRights;
+    changed = true;
+  }
+
+  if (changed) {
+    await settings.save();
+  }
+};
+
+const upgradeLegacyOrderStatuses = async () => {
+  const statusMap = {
+    pending: STATUS_FLOW.PENDING_PAYMENT,
+    confirmed: STATUS_FLOW.CONFIRMED,
+    processing: STATUS_FLOW.OUT_FOR_DELIVERY,
+    shipped: STATUS_FLOW.OUT_FOR_DELIVERY,
+    delivered: STATUS_FLOW.DELIVERED,
+    cancelled: STATUS_FLOW.CANCELLED,
+  };
+
+  for (const [legacyStatus, nextStatus] of Object.entries(statusMap)) {
+    await StoreOrder.updateMany(
+      { orderStatus: legacyStatus },
+      { $set: { orderStatus: nextStatus } }
+    );
+  }
+};
+
 const ensureSeedData = async () => {
   const settingsCount = await StoreSettings.countDocuments();
   if (!settingsCount) {
@@ -281,6 +500,7 @@ const ensureSeedData = async () => {
       ...defaultSettings,
     });
   }
+  await ensureSettingsUpgraded();
 
   const categoryCount = await StoreCategory.countDocuments();
   if (!categoryCount) {
@@ -314,6 +534,21 @@ const ensureSeedData = async () => {
   if (!blogCount) {
     await StoreBlogPost.insertMany(defaultBlogPosts);
   }
+
+  const workerCount = await StoreWorker.countDocuments();
+  if (!workerCount) {
+    const workerPasswordHash = await bcrypt.hash('worker123', 10);
+    await StoreWorker.create({
+      name: 'Default Delivery Worker',
+      phone: '+923000000001',
+      email: 'worker1@rohanrice.com',
+      passwordHash: workerPasswordHash,
+      status: 'active',
+      notes: 'Default worker account. Change credentials from admin panel.',
+    });
+  }
+
+  await upgradeLegacyOrderStatuses();
 };
 
 const getOrCreateCustomerCart = async (customerId) => {
@@ -336,6 +571,7 @@ const getBootstrapData = async (auth) => {
   const baseData = {
     admins: [],
     customers: [],
+    workers: [],
     categories: categories.map(serializeCategory),
     products: products.map(serializeProduct),
     orders: [],
@@ -343,6 +579,9 @@ const getBootstrapData = async (auth) => {
     blogPosts: [],
     visitorLogs: [],
     contactMessages: [],
+    payments: [],
+    ledger: [],
+    fraudAlerts: [],
     carts: {},
     settings: serializeSettings(settingsDoc || {}),
   };
@@ -374,6 +613,9 @@ const getBootstrapData = async (auth) => {
       StoreBlogPost.find({ status: 'published' }).sort({ createdAt: -1 }).lean(),
     ]);
 
+    const orderIds = orders.map((order) => order._id);
+    const payments = await StorePayment.find({ orderId: { $in: orderIds } }).sort({ createdAt: -1 }).lean();
+
     return {
       session: {
         role: 'customer',
@@ -385,20 +627,52 @@ const getBootstrapData = async (auth) => {
         orders: orders.map(serializeOrder),
         reviews: reviews.map(serializeReview),
         blogPosts: blogPosts.map(serializeBlogPost),
+        payments: payments.map(serializePayment),
         carts: customer ? { [toId(customer._id)]: serializeCartItems(cart) } : {},
       },
     };
   }
 
-  const [admins, customers, orders, reviews, blogPosts, visitorLogs, contactMessages] = await Promise.all([
-    StoreAdmin.find().sort({ createdAt: -1 }).lean(),
-    StoreCustomer.find().sort({ createdAt: -1 }).lean(),
-    StoreOrder.find().sort({ createdAt: -1 }).lean(),
-    StoreReview.find().sort({ createdAt: -1 }).lean(),
-    StoreBlogPost.find().sort({ createdAt: -1 }).lean(),
-    StoreVisitorLog.find().sort({ createdAt: -1 }).limit(5000).lean(),
-    StoreContactMessage.find().sort({ createdAt: -1 }).lean(),
-  ]);
+  if (auth.role === 'worker') {
+    const [worker, orders] = await Promise.all([
+      StoreWorker.findById(auth.userId).lean(),
+      StoreOrder.find({ workerId: auth.userId }).sort({ createdAt: -1 }).lean(),
+    ]);
+    const orderIds = orders.map((order) => order._id);
+    const payments = await StorePayment.find({
+      $or: [{ orderId: { $in: orderIds } }, { createdByWorker: auth.userId }],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return {
+      session: {
+        role: 'worker',
+        user: worker ? serializeWorker(worker) : null,
+      },
+      data: {
+        ...baseData,
+        workers: worker ? [serializeWorker(worker)] : [],
+        orders: orders.map(serializeOrder),
+        payments: payments.map(serializePayment),
+      },
+    };
+  }
+
+  const [admins, customers, workers, orders, reviews, blogPosts, visitorLogs, contactMessages, payments, ledger, fraudAlerts] =
+    await Promise.all([
+      StoreAdmin.find().sort({ createdAt: -1 }).lean(),
+      StoreCustomer.find().sort({ createdAt: -1 }).lean(),
+      StoreWorker.find().sort({ createdAt: -1 }).lean(),
+      StoreOrder.find().sort({ createdAt: -1 }).lean(),
+      StoreReview.find().sort({ createdAt: -1 }).lean(),
+      StoreBlogPost.find().sort({ createdAt: -1 }).lean(),
+      StoreVisitorLog.find().sort({ createdAt: -1 }).limit(5000).lean(),
+      StoreContactMessage.find().sort({ createdAt: -1 }).lean(),
+      StorePayment.find().sort({ createdAt: -1 }).lean(),
+      StoreLedger.find().sort({ createdAt: -1 }).limit(5000).lean(),
+      StoreFraudAlert.find().sort({ createdAt: -1 }).limit(5000).lean(),
+    ]);
 
   return {
     session: {
@@ -409,11 +683,15 @@ const getBootstrapData = async (auth) => {
       ...baseData,
       admins: admins.map(serializeAdmin),
       customers: customers.map(serializeCustomer),
+      workers: workers.map(serializeWorker),
       orders: orders.map(serializeOrder),
       reviews: reviews.map(serializeReview),
       blogPosts: blogPosts.map(serializeBlogPost),
       visitorLogs: visitorLogs.map(serializeVisitorLog),
       contactMessages: contactMessages.map(serializeContactMessage),
+      payments: payments.map(serializePayment),
+      ledger: ledger.map(serializeLedgerEntry),
+      fraudAlerts: fraudAlerts.map(serializeFraudAlert),
     },
   };
 };
@@ -587,11 +865,47 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
+router.post('/auth/worker/login', async (req, res) => {
+  try {
+    const phone = normalizePakPhone(req.body.phone || '');
+    const password = String(req.body.password || '');
+    if (!phone || !password) {
+      return res.status(400).json({ success: false, message: 'Phone and password are required.' });
+    }
+
+    const worker = await StoreWorker.findOne({ phone }).select('+passwordHash');
+    if (!worker || worker.status !== 'active') {
+      return res.status(401).json({ success: false, message: 'Invalid worker credentials.' });
+    }
+
+    const passwordValid = await bcrypt.compare(password, worker.passwordHash);
+    if (!passwordValid) {
+      return res.status(401).json({ success: false, message: 'Invalid worker credentials.' });
+    }
+
+    const token = createToken({ role: 'worker', userId: toId(worker._id) });
+    return res.json({
+      success: true,
+      message: 'Worker login successful.',
+      token,
+      role: 'worker',
+      user: serializeWorker(worker),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.get('/auth/me', requireAuth, async (req, res) =>
   res.json({
     success: true,
     role: req.auth.role,
-    user: req.auth.role === 'admin' ? serializeAdmin(req.auth.user) : serializeCustomer(req.auth.user),
+    user:
+      req.auth.role === 'admin'
+        ? serializeAdmin(req.auth.user)
+        : req.auth.role === 'worker'
+          ? serializeWorker(req.auth.user)
+          : serializeCustomer(req.auth.user),
   })
 );
 
@@ -616,12 +930,18 @@ router.put('/profile', requireAuth, async (req, res) => {
       updates.profileImage = req.body.profileImage || '';
     }
 
-    const model = req.auth.role === 'admin' ? StoreAdmin : StoreCustomer;
+    const model =
+      req.auth.role === 'admin' ? StoreAdmin : req.auth.role === 'worker' ? StoreWorker : StoreCustomer;
     const user = await model.findByIdAndUpdate(req.auth.userId, updates, { new: true, runValidators: true }).lean();
     return res.json({
       success: true,
       message: 'Profile updated.',
-      user: req.auth.role === 'admin' ? serializeAdmin(user) : serializeCustomer(user),
+      user:
+        req.auth.role === 'admin'
+          ? serializeAdmin(user)
+          : req.auth.role === 'worker'
+            ? serializeWorker(user)
+            : serializeCustomer(user),
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -773,11 +1093,32 @@ router.delete('/cart/clear', requireAuth, requireCustomer, async (req, res) => {
   }
 });
 
-router.post('/orders', requireAuth, requireCustomer, async (req, res) => {
+const createOrder = async (req, res) => {
   try {
-    const { address, notes = '', paymentMethod = 'cash_on_delivery' } = req.body;
+    const {
+      address,
+      notes = '',
+      paymentMethod = 'cash_on_delivery',
+      transactionId = '',
+      senderPhone = '',
+      paymentProofImage = '',
+    } = req.body;
+    const normalizedPaymentMethod = PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : '';
+    if (!normalizedPaymentMethod) {
+      return res.status(400).json({ success: false, message: 'Invalid payment method.' });
+    }
     if (!address?.fullName || !address?.phone || !address?.city || !address?.area || !address?.addressLine) {
       return res.status(400).json({ success: false, message: 'Complete delivery address is required.' });
+    }
+
+    if (
+      normalizedPaymentMethod !== 'cash_on_delivery' &&
+      (!transactionId || !senderPhone || !paymentProofImage)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transaction ID, sender phone, and payment screenshot are required for wallet payments.',
+      });
     }
 
     const cart = await getOrCreateCustomerCart(req.auth.userId);
@@ -809,6 +1150,10 @@ router.post('/orders', requireAuth, requireCustomer, async (req, res) => {
     const subtotal = Number(orderItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
     const deliveryCharge = subtotal > 5000 ? 0 : 250;
     const totalAmount = Number((subtotal + deliveryCharge).toFixed(2));
+    const initialStatus =
+      normalizedPaymentMethod === 'cash_on_delivery'
+        ? STATUS_FLOW.CONFIRMED
+        : STATUS_FLOW.PENDING_PAYMENT_VERIFICATION;
 
     const order = await StoreOrder.create({
       orderNumber: `RR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
@@ -819,8 +1164,8 @@ router.post('/orders', requireAuth, requireCustomer, async (req, res) => {
       subtotal,
       deliveryCharge,
       totalAmount,
-      paymentMethod,
-      orderStatus: 'pending',
+      paymentMethod: normalizedPaymentMethod,
+      orderStatus: initialStatus,
       address,
       notes,
     });
@@ -837,8 +1182,19 @@ router.post('/orders', requireAuth, requireCustomer, async (req, res) => {
       }))
     );
 
-    for (const item of orderItems) {
-      await StoreProduct.findByIdAndUpdate(item.productId, { $inc: { stockQuantity: -item.quantity } });
+    let payment = null;
+    if (normalizedPaymentMethod !== 'cash_on_delivery') {
+      const paymentDoc = await StorePayment.create({
+        orderId: order._id,
+        paymentMethod: normalizedPaymentMethod,
+        amount: totalAmount,
+        transactionId: String(transactionId).trim(),
+        senderPhone: normalizePakPhone(senderPhone),
+        paymentProofImage: paymentProofImage || '',
+        verificationStatus: 'pending',
+        verified: false,
+      });
+      payment = serializePayment(paymentDoc);
     }
 
     cart.items = [];
@@ -846,17 +1202,26 @@ router.post('/orders', requireAuth, requireCustomer, async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Order placed successfully.',
+      message:
+        normalizedPaymentMethod === 'cash_on_delivery'
+          ? 'Order confirmed. Cash will be collected on delivery.'
+          : 'Order submitted. Payment is pending admin verification.',
       order: serializeOrder(order),
+      payment,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
-});
+};
+
+router.post('/orders', requireAuth, requireCustomer, createOrder);
+router.post('/orders/create', requireAuth, requireCustomer, createOrder);
 
 router.get('/orders', requireAuth, async (req, res) => {
   try {
-    const filter = req.auth.role === 'admin' ? {} : { customerId: req.auth.userId };
+    let filter = { customerId: req.auth.userId };
+    if (req.auth.role === 'admin') filter = {};
+    if (req.auth.role === 'worker') filter = { workerId: req.auth.userId };
     const orders = await StoreOrder.find(filter).sort({ createdAt: -1 }).lean();
     return res.json({ success: true, orders: orders.map(serializeOrder) });
   } catch (error) {
@@ -867,9 +1232,56 @@ router.get('/orders', requireAuth, async (req, res) => {
 router.put('/orders/:id/status', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { orderStatus } = req.body;
-    if (!orderStatus) return res.status(400).json({ success: false, message: 'Order status is required.' });
-    const order = await StoreOrder.findByIdAndUpdate(req.params.id, { orderStatus }, { new: true, runValidators: true }).lean();
+    if (!ADMIN_SETTABLE_ORDER_STATUSES.includes(orderStatus)) {
+      return res.status(400).json({ success: false, message: 'Valid order status is required.' });
+    }
+
+    const order = await StoreOrder.findById(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    if (orderStatus === STATUS_FLOW.COMPLETED) {
+      if (order.paymentMethod !== 'cash_on_delivery') {
+        const approvedPayment = await StorePayment.findOne({
+          orderId: order._id,
+          verificationStatus: 'approved',
+          verified: true,
+        }).lean();
+        if (!approvedPayment) {
+          return res.status(400).json({
+            success: false,
+            message: 'Wallet payment must be approved before completing this order.',
+          });
+        }
+      }
+      const completedOrder = await completeOrderFinancials(order._id);
+      return res.json({ success: true, message: 'Order marked as completed.', order: serializeOrder(completedOrder) });
+    }
+
+    order.orderStatus = orderStatus;
+    if (orderStatus === STATUS_FLOW.DELIVERED) {
+      order.deliveredAt = new Date();
+      if (order.paymentMethod !== 'cash_on_delivery') {
+        const approvedPayment = await StorePayment.findOne({
+          orderId: order._id,
+          verificationStatus: 'approved',
+          verified: true,
+        }).lean();
+        if (!approvedPayment) {
+          await createFraudAlert({
+            orderId: order._id,
+            workerId: order.workerId || null,
+            type: 'missing_payment_proof',
+            severity: 'high',
+            details: `Order ${order.orderNumber} was delivered without approved wallet payment proof.`,
+          });
+        }
+      }
+    }
+    if (orderStatus === STATUS_FLOW.PAID) {
+      order.paidAt = new Date();
+    }
+
+    await order.save();
     return res.json({ success: true, message: 'Order status updated.', order: serializeOrder(order) });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -1158,6 +1570,588 @@ router.patch('/messages/:id/status', requireAuth, requireAdmin, async (req, res)
   }
 });
 
+router.get('/payment-options', async (req, res) => {
+  try {
+    await ensureSeedData();
+    const settings = await StoreSettings.findOne({ key: 'default' }).lean();
+    const serialized = serializeSettings(settings || {});
+    return res.json({
+      success: true,
+      paymentOptions: {
+        cashOnDelivery: true,
+        easyPaisaNumber: serialized.easyPaisaNumber,
+        jazzCashNumber: serialized.jazzCashNumber,
+        easyPaisaQrImage: serialized.easyPaisaQrImage,
+        jazzCashQrImage: serialized.jazzCashQrImage,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/payments/upload', requireAuth, async (req, res) => {
+  try {
+    const { orderId, paymentMethod, transactionId = '', senderPhone = '', paymentProofImage = '' } = req.body;
+    const normalizedPaymentMethod = PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : '';
+
+    if (!orderId || !normalizedPaymentMethod || !transactionId || !senderPhone || !paymentProofImage) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order ID, payment method, transaction ID, sender phone, and screenshot are required.',
+      });
+    }
+
+    const order = await StoreOrder.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    if (req.auth.role === 'customer' && toId(order.customerId) !== req.auth.userId) {
+      return res.status(403).json({ success: false, message: 'You can only upload payments for your own orders.' });
+    }
+    if (req.auth.role === 'worker' && toId(order.workerId) !== req.auth.userId) {
+      return res.status(403).json({ success: false, message: 'You can only upload payments for assigned deliveries.' });
+    }
+
+    const payment = await StorePayment.create({
+      orderId: order._id,
+      paymentMethod: normalizedPaymentMethod,
+      amount: Number(order.totalAmount || 0),
+      transactionId: String(transactionId).trim(),
+      senderPhone: normalizePakPhone(senderPhone),
+      paymentProofImage,
+      verificationStatus: 'pending',
+      verified: false,
+      createdByWorker: req.auth.role === 'worker' ? req.auth.userId : null,
+    });
+
+    if (normalizedPaymentMethod !== 'cash_on_delivery') {
+      order.orderStatus = STATUS_FLOW.PENDING_PAYMENT_VERIFICATION;
+      await order.save();
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Payment proof uploaded and pending admin verification.',
+      payment: serializePayment(payment),
+      order: serializeOrder(order),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/orders/mark-paid', requireAuth, async (req, res) => {
+  try {
+    if (!['admin', 'worker'].includes(req.auth.role)) {
+      return res.status(403).json({ success: false, message: 'Only admin or worker can mark orders as paid.' });
+    }
+
+    const { orderId, paymentProofImage = '', transactionId = '', senderPhone = '', complete = true } = req.body;
+    if (!orderId) return res.status(400).json({ success: false, message: 'Order ID is required.' });
+
+    const order = await StoreOrder.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    if (req.auth.role === 'worker' && toId(order.workerId) !== req.auth.userId) {
+      return res.status(403).json({ success: false, message: 'You can only mark your assigned orders as paid.' });
+    }
+
+    if (order.paymentMethod !== 'cash_on_delivery') {
+      let approvedPayment = await StorePayment.findOne({
+        orderId: order._id,
+        verificationStatus: 'approved',
+        verified: true,
+      }).lean();
+
+      if (!approvedPayment && paymentProofImage && transactionId && senderPhone) {
+        await StorePayment.create({
+          orderId: order._id,
+          paymentMethod: order.paymentMethod,
+          amount: Number(order.totalAmount || 0),
+          transactionId: String(transactionId).trim(),
+          senderPhone: normalizePakPhone(senderPhone),
+          paymentProofImage,
+          verificationStatus: 'pending',
+          verified: false,
+          createdByWorker: req.auth.role === 'worker' ? req.auth.userId : null,
+        });
+      }
+
+      approvedPayment = await StorePayment.findOne({
+        orderId: order._id,
+        verificationStatus: 'approved',
+        verified: true,
+      }).lean();
+
+      if (!approvedPayment) {
+        order.orderStatus = STATUS_FLOW.PENDING_PAYMENT_VERIFICATION;
+        await order.save();
+        return res.status(400).json({
+          success: false,
+          message: 'Wallet payment is not approved yet. Uploaded proof has been sent for verification.',
+          order: serializeOrder(order),
+        });
+      }
+    }
+
+    if (req.auth.role === 'worker') {
+      order.workerId = req.auth.userId;
+    }
+    order.orderStatus = STATUS_FLOW.PAID;
+    order.paidAt = new Date();
+    await order.save();
+
+    if (!paymentProofImage && order.paymentMethod === 'cash_on_delivery') {
+      await createFraudAlert({
+        orderId: order._id,
+        workerId: order.workerId || null,
+        type: 'missing_payment_proof',
+        severity: 'medium',
+        details: `Cash payment marked as paid for ${order.orderNumber} without proof upload.`,
+      });
+    }
+
+    let latestOrder = order.toObject();
+    if (complete) {
+      const completed = await completeOrderFinancials(order._id);
+      latestOrder = completed || latestOrder;
+    }
+
+    if (req.auth.role === 'worker' && order.paymentMethod === 'cash_on_delivery') {
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const workerOrders = await StoreOrder.find({
+        workerId: req.auth.userId,
+        paymentMethod: 'cash_on_delivery',
+        paidAt: { $gte: dayStart, $lt: dayEnd },
+        orderStatus: { $in: [STATUS_FLOW.PAID, STATUS_FLOW.COMPLETED] },
+      }).lean();
+
+      const expectedAmount = workerOrders.reduce((sum, workerOrder) => sum + Number(workerOrder.totalAmount || 0), 0);
+      const orderIds = workerOrders.map((workerOrder) => workerOrder._id);
+      const ledgerEntries = await StoreLedger.find({
+        type: 'sale',
+        orderId: { $in: orderIds },
+        workerId: req.auth.userId,
+      }).lean();
+      const ledgerAmount = ledgerEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+      const delta = Math.abs(expectedAmount - ledgerAmount);
+      if (delta > 1) {
+        const dateKey = dayStart.toISOString().slice(0, 10);
+        const existing = await StoreFraudAlert.findOne({
+          workerId: req.auth.userId,
+          type: 'daily_collection_mismatch',
+          details: { $regex: dateKey },
+        }).lean();
+        if (!existing) {
+          await createFraudAlert({
+            orderId: order._id,
+            workerId: req.auth.userId,
+            type: 'daily_collection_mismatch',
+            severity: 'high',
+            details: `Cash mismatch on ${dateKey}: expected ${expectedAmount}, ledger ${ledgerAmount}.`,
+          });
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: complete ? 'Order marked paid and completed.' : 'Order marked as paid.',
+      order: serializeOrder(latestOrder),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/payments', requireAuth, async (req, res) => {
+  try {
+    let payments = [];
+    if (req.auth.role === 'admin') {
+      payments = await StorePayment.find().sort({ createdAt: -1 }).lean();
+    } else if (req.auth.role === 'worker') {
+      payments = await StorePayment.find({ createdByWorker: req.auth.userId }).sort({ createdAt: -1 }).lean();
+    } else {
+      const orders = await StoreOrder.find({ customerId: req.auth.userId }).select('_id').lean();
+      const orderIds = orders.map((order) => order._id);
+      payments = await StorePayment.find({ orderId: { $in: orderIds } }).sort({ createdAt: -1 }).lean();
+    }
+    return res.json({ success: true, payments: payments.map(serializePayment) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/admin/orders', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const orders = await StoreOrder.find().sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, orders: orders.map(serializeOrder) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/admin/payments', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const statusFilter = String(req.query.status || '').toLowerCase();
+    const query = {};
+    if (['pending', 'approved', 'rejected'].includes(statusFilter)) {
+      query.verificationStatus = statusFilter;
+    }
+    const payments = await StorePayment.find(query).sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, payments: payments.map(serializePayment) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.patch('/admin/payments/:id/verify', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const approve = req.body.approve === true;
+    const rejectionReason = String(req.body.rejectionReason || '').trim();
+
+    const payment = await StorePayment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found.' });
+
+    const order = await StoreOrder.findById(payment.orderId);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    if (approve) {
+      payment.verificationStatus = 'approved';
+      payment.verified = true;
+      payment.verifiedByAdmin = req.auth.userId;
+      payment.verifiedAt = new Date();
+      payment.rejectionReason = '';
+      await payment.save();
+
+      if (
+        [STATUS_FLOW.PENDING_PAYMENT, STATUS_FLOW.PENDING_PAYMENT_VERIFICATION].includes(order.orderStatus)
+      ) {
+        order.orderStatus = STATUS_FLOW.CONFIRMED;
+        await order.save();
+      }
+
+      return res.json({
+        success: true,
+        message: 'Payment approved successfully.',
+        payment: serializePayment(payment),
+        order: serializeOrder(order),
+      });
+    }
+
+    payment.verificationStatus = 'rejected';
+    payment.verified = false;
+    payment.rejectionReason = rejectionReason || 'Payment details do not match records.';
+    payment.failedAttempts = Number(payment.failedAttempts || 0) + 1;
+    await payment.save();
+
+    order.failedPaymentVerifications = Number(order.failedPaymentVerifications || 0) + 1;
+    order.orderStatus = STATUS_FLOW.PENDING_PAYMENT;
+    await order.save();
+
+    if (order.failedPaymentVerifications >= 3) {
+      await createFraudAlert({
+        orderId: order._id,
+        workerId: order.workerId || null,
+        type: 'multiple_failed_verifications',
+        severity: 'high',
+        details: `Order ${order.orderNumber} has ${order.failedPaymentVerifications} failed payment verifications.`,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Payment rejected.',
+      payment: serializePayment(payment),
+      order: serializeOrder(order),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/admin/workers', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const workers = await StoreWorker.find().sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, workers: workers.map(serializeWorker) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/admin/workers', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, phone, email = '', password, profileImage = '', status = 'active', notes = '' } = req.body;
+    const normalizedPhone = normalizePakPhone(phone || '');
+    if (!name || !normalizedPhone || !password) {
+      return res.status(400).json({ success: false, message: 'Name, phone and password are required.' });
+    }
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      return res.status(400).json({ success: false, message: 'Worker phone must be in +92XXXXXXXXXX format.' });
+    }
+
+    const existing = await StoreWorker.findOne({
+      $or: [{ phone: normalizedPhone }, ...(email ? [{ email: String(email).trim().toLowerCase() }] : [])],
+    }).lean();
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Worker with this phone/email already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    const worker = await StoreWorker.create({
+      name: String(name).trim(),
+      phone: normalizedPhone,
+      email: String(email || '').trim().toLowerCase() || undefined,
+      passwordHash,
+      profileImage,
+      status: status === 'inactive' ? 'inactive' : 'active',
+      notes: String(notes || '').trim(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Worker created successfully.',
+      worker: serializeWorker(worker),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/admin/workers/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const updates = {};
+    if (req.body.name !== undefined) updates.name = String(req.body.name || '').trim();
+    if (req.body.phone !== undefined) updates.phone = normalizePakPhone(req.body.phone || '');
+    if (req.body.email !== undefined) updates.email = String(req.body.email || '').trim().toLowerCase() || undefined;
+    if (req.body.profileImage !== undefined) updates.profileImage = req.body.profileImage || '';
+    if (req.body.status !== undefined) updates.status = req.body.status === 'inactive' ? 'inactive' : 'active';
+    if (req.body.notes !== undefined) updates.notes = String(req.body.notes || '').trim();
+    if (req.body.password) {
+      updates.passwordHash = await bcrypt.hash(String(req.body.password), 10);
+    }
+    if (updates.phone && !PHONE_REGEX.test(updates.phone)) {
+      return res.status(400).json({ success: false, message: 'Worker phone must be in +92XXXXXXXXXX format.' });
+    }
+
+    const worker = await StoreWorker.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+      runValidators: true,
+    }).lean();
+    if (!worker) return res.status(404).json({ success: false, message: 'Worker not found.' });
+    return res.json({ success: true, message: 'Worker updated successfully.', worker: serializeWorker(worker) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/admin/orders/:id/assign-worker', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { workerId } = req.body;
+    if (!workerId) return res.status(400).json({ success: false, message: 'Worker ID is required.' });
+
+    const worker = await StoreWorker.findById(workerId).lean();
+    if (!worker || worker.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Selected worker is unavailable.' });
+    }
+
+    const order = await StoreOrder.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+    order.workerId = workerId;
+    if ([STATUS_FLOW.CONFIRMED, STATUS_FLOW.DELIVERED].includes(order.orderStatus)) {
+      order.orderStatus = STATUS_FLOW.OUT_FOR_DELIVERY;
+    }
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: 'Worker assigned to order.',
+      order: serializeOrder(order),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/admin/ledger', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const ledger = await StoreLedger.find().sort({ createdAt: -1 }).limit(10000).lean();
+    return res.json({ success: true, ledger: ledger.map(serializeLedgerEntry) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/admin/fraud-alerts', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const fraudAlerts = await StoreFraudAlert.find().sort({ createdAt: -1 }).limit(5000).lean();
+    return res.json({ success: true, fraudAlerts: fraudAlerts.map(serializeFraudAlert) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.patch('/admin/fraud-alerts/:id/status', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const status = ['open', 'investigating', 'resolved'].includes(req.body.status) ? req.body.status : '';
+    if (!status) return res.status(400).json({ success: false, message: 'Invalid fraud alert status.' });
+
+    const fraudAlert = await StoreFraudAlert.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    ).lean();
+    if (!fraudAlert) return res.status(404).json({ success: false, message: 'Fraud alert not found.' });
+
+    return res.json({ success: true, message: 'Fraud alert updated.', fraudAlert: serializeFraudAlert(fraudAlert) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/admin/reports/overview', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const [ordersToday, completedToday, workers] = await Promise.all([
+      StoreOrder.find({ createdAt: { $gte: startOfDay, $lt: endOfDay } }).lean(),
+      StoreOrder.find({
+        completedAt: { $gte: startOfDay, $lt: endOfDay },
+        orderStatus: STATUS_FLOW.COMPLETED,
+      }).lean(),
+      StoreWorker.find({ status: 'active' }).lean(),
+    ]);
+
+    const revenue = completedToday.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+    const productsSold = completedToday.reduce((sum, order) => {
+      return sum + (order.items || []).reduce((subtotal, item) => subtotal + Number(item.quantity || 0), 0);
+    }, 0);
+
+    const workerCollections = await Promise.all(
+      workers.map(async (worker) => {
+        const workerOrders = completedToday.filter((order) => toId(order.workerId) === toId(worker._id));
+        const amount = workerOrders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+        return {
+          workerId: toId(worker._id),
+          workerName: worker.name,
+          amount,
+          orders: workerOrders.length,
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      report: {
+        ordersToday: ordersToday.length,
+        dailyRevenue: Number(revenue.toFixed(2)),
+        productsSold,
+        workerCollections,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/worker/deliveries', requireAuth, requireWorker, async (req, res) => {
+  try {
+    const statusFilter = req.query.status
+      ? { orderStatus: String(req.query.status) }
+      : { orderStatus: { $in: [STATUS_FLOW.OUT_FOR_DELIVERY, STATUS_FLOW.DELIVERED, STATUS_FLOW.PAID] } };
+    const deliveries = await StoreOrder.find({
+      workerId: req.auth.userId,
+      ...statusFilter,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ success: true, deliveries: deliveries.map(serializeOrder) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/worker/orders/:id/delivered', requireAuth, requireWorker, async (req, res) => {
+  try {
+    const order = await StoreOrder.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+    if (toId(order.workerId) !== req.auth.userId) {
+      return res.status(403).json({ success: false, message: 'This order is not assigned to you.' });
+    }
+
+    order.orderStatus = STATUS_FLOW.DELIVERED;
+    order.deliveredAt = new Date();
+    await order.save();
+
+    if (order.paymentMethod !== 'cash_on_delivery') {
+      const approvedPayment = await StorePayment.findOne({
+        orderId: order._id,
+        verificationStatus: 'approved',
+        verified: true,
+      }).lean();
+      if (!approvedPayment) {
+        await createFraudAlert({
+          orderId: order._id,
+          workerId: req.auth.userId,
+          type: 'missing_payment_proof',
+          severity: 'high',
+          details: `Worker delivered wallet order ${order.orderNumber} without approved payment proof.`,
+        });
+      }
+    }
+
+    return res.json({ success: true, message: 'Order marked as delivered.', order: serializeOrder(order) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/worker/orders/:id/upload-payment-proof', requireAuth, requireWorker, async (req, res) => {
+  try {
+    const order = await StoreOrder.findById(req.params.id).lean();
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+    if (toId(order.workerId) !== req.auth.userId) {
+      return res.status(403).json({ success: false, message: 'This order is not assigned to you.' });
+    }
+
+    const { transactionId = '', senderPhone = '', paymentProofImage = '' } = req.body;
+    if (!transactionId || !senderPhone || !paymentProofImage) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transaction ID, sender phone, and screenshot are required.',
+      });
+    }
+
+    const payment = await StorePayment.create({
+      orderId: order._id,
+      paymentMethod: order.paymentMethod,
+      amount: Number(order.totalAmount || 0),
+      transactionId: String(transactionId).trim(),
+      senderPhone: normalizePakPhone(senderPhone),
+      paymentProofImage,
+      verificationStatus: 'pending',
+      verified: false,
+      createdByWorker: req.auth.userId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Payment proof uploaded for admin verification.',
+      payment: serializePayment(payment),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.put('/settings', requireAuth, requireAdmin, async (req, res) => {
   try {
     const current = await StoreSettings.findOne({ key: 'default' });
@@ -1191,6 +2185,10 @@ router.post('/reset-demo', requireAuth, requireAdmin, async (req, res) => {
       StoreBlogPost.deleteMany({}),
       StoreVisitorLog.deleteMany({}),
       StoreContactMessage.deleteMany({}),
+      StorePayment.deleteMany({}),
+      StoreWorker.deleteMany({}),
+      StoreLedger.deleteMany({}),
+      StoreFraudAlert.deleteMany({}),
       StoreCart.deleteMany({}),
       StoreOtpSession.deleteMany({}),
       StoreSettings.deleteMany({}),
