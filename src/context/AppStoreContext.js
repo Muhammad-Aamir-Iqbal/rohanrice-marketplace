@@ -28,9 +28,30 @@ const emptyData = {
   settings: {},
 };
 
+// Session can be missing or corrupted in localStorage; normalize it before render.
+const normalizeSession = (value) => {
+  if (!value || typeof value !== 'object') {
+    return { ...defaultSession };
+  }
+
+  return {
+    token: typeof value.token === 'string' ? value.token : '',
+    role: typeof value.role === 'string' ? value.role : '',
+    userId: typeof value.userId === 'string' ? value.userId : '',
+  };
+};
+
 const safeParse = (raw, fallback) => {
+  if (!raw) {
+    return fallback;
+  }
+
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object') {
+      return fallback;
+    }
+    return parsed;
   } catch (error) {
     return fallback;
   }
@@ -78,12 +99,15 @@ const AppStoreContext = createContext(null);
 
 export function AppStoreProvider({ children }) {
   const [data, setData] = useState(emptyData);
-  const [session, setSession] = useState(defaultSession);
+  const [sessionState, setSession] = useState(defaultSession);
   const [currentUser, setCurrentUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const didHydrateRef = useRef(false);
 
-  const refreshData = useCallback(async (tokenOverride = session.token) => {
+  const session = normalizeSession(sessionState);
+  const currentSession = session;
+
+  const refreshData = useCallback(async (tokenOverride = currentSession.token) => {
     try {
       const payload = await apiCall('/bootstrap', {
         token: tokenOverride || '',
@@ -128,7 +152,7 @@ export function AppStoreProvider({ children }) {
         message: error.message,
       };
     }
-  }, [session.token]);
+  }, [currentSession.token]);
 
   useEffect(() => {
     if (didHydrateRef.current) return;
@@ -140,7 +164,9 @@ export function AppStoreProvider({ children }) {
       if (typeof window === 'undefined') return;
 
       ensureVisitorId();
-      const storedSession = safeParse(localStorage.getItem(SESSION_KEY), defaultSession);
+      const storedSession = normalizeSession(
+        safeParse(localStorage.getItem(SESSION_KEY), defaultSession)
+      );
 
       if (!mounted) return;
       setSession(storedSession);
@@ -164,10 +190,10 @@ export function AppStoreProvider({ children }) {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }, [hydrated, session]);
 
-  const isAuthenticated = Boolean(session.token && currentUser);
-  const isAdmin = isAuthenticated && session.role === 'admin';
-  const isCustomer = isAuthenticated && session.role === 'customer';
-  const isWorker = isAuthenticated && session.role === 'worker';
+  const isAuthenticated = Boolean(currentSession.token && currentUser);
+  const isAdmin = isAuthenticated && currentSession.role === 'admin';
+  const isCustomer = isAuthenticated && currentSession.role === 'customer';
+  const isWorker = isAuthenticated && currentSession.role === 'worker';
 
   const cartItems = useMemo(() => {
     if (!isCustomer || !currentUser?.id) return [];
@@ -282,11 +308,11 @@ export function AppStoreProvider({ children }) {
 
   const logout = useCallback(
     async () => {
-      if (session.token) {
+      if (currentSession.token) {
         await withResult(async () =>
           apiCall('/auth/logout', {
             method: 'POST',
-            token: session.token,
+            token: currentSession.token,
           })
         );
       }
@@ -297,7 +323,7 @@ export function AppStoreProvider({ children }) {
 
       return { success: true, message: 'Logged out.' };
     },
-    [refreshData, session.token]
+    [currentSession.token, refreshData]
   );
 
   const logVisitorEvent = useCallback(
@@ -306,7 +332,7 @@ export function AppStoreProvider({ children }) {
       await withResult(async () =>
         apiCall('/visitor-log', {
           method: 'POST',
-          token: session.token,
+          token: currentSession.token,
           body: {
             page,
             action,
@@ -316,7 +342,7 @@ export function AppStoreProvider({ children }) {
         })
       );
     },
-    [session.token]
+    [currentSession.token]
   );
 
   const updateCurrentProfile = useCallback(
@@ -324,14 +350,14 @@ export function AppStoreProvider({ children }) {
       withResult(async () => {
         const payload = await apiCall('/profile', {
           method: 'PUT',
-          token: session.token,
+          token: currentSession.token,
           body: updates,
         });
         setCurrentUser(payload.user || null);
-        await refreshData(session.token);
+        await refreshData(currentSession.token);
         return payload;
       }),
-    [refreshData, session.token]
+    [currentSession.token, refreshData]
   );
 
   const addToCart = useCallback(

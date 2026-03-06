@@ -1,4 +1,5 @@
-﻿import React from 'react';
+import React from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import AdminLayout from '@/components/AdminLayout';
@@ -47,9 +48,13 @@ function Shell({ Component, pageProps }) {
 
 export default function App(props) {
   return (
-    <AppStoreProvider>
-      <Shell {...props} />
-    </AppStoreProvider>
+    <>
+      <Head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      </Head>
+      <AppStoreProvider>
+        <Shell {...props} />
+      </AppStoreProvider>
+    </>
   );
 }
-
