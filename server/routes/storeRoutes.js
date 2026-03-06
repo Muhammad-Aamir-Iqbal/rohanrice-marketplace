@@ -1761,7 +1761,13 @@ router.post('/orders/mark-paid', requireAuth, async (req, res) => {
         orderStatus: { $in: [STATUS_FLOW.PAID, STATUS_FLOW.COMPLETED] },
       }).lean();
 
-      const expectedAmount = workerOrders.reduce((sum, workerOrder) => sum + Number(workerOrder.totalAmount || 0), 0);
+      const expectedAmount = workerOrders.reduce((sum, workerOrder) => {
+        const orderItemTotal = (workerOrder.items || []).reduce(
+          (subTotal, item) => subTotal + Number(item.lineTotal || 0),
+          0
+        );
+        return sum + orderItemTotal;
+      }, 0);
       const orderIds = workerOrders.map((workerOrder) => workerOrder._id);
       const ledgerEntries = await StoreLedger.find({
         type: 'sale',
